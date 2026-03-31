@@ -11,13 +11,14 @@ function getStyles() {
 
         .qp-scoreboard {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: 30% 30% 40%;
           border-bottom: 1px solid #ddd;
           margin: 0 2rem;
           padding: 0.25rem 1rem;
           font-family: monospace;
         }
         .qp-scoreboard-output {
+          text-align: center;
         }
         .qp-scoreboard-counter {
           text-align: right;

@@ -36,6 +36,7 @@ class QPBreakout extends HTMLElement {
   static COLS = 8;
   static ROWS = 4;
   static LIVES = 3;
+  static EXTRA_LIVE = 1000;
   static PADDLE_SPEED = 6;
   static PREVENT_KEYCODES = {
     13: "Enter",
@@ -86,6 +87,7 @@ class QPBreakout extends HTMLElement {
     this._speed = 0;
     this._level = 1;
     this._state = "stopped";
+    this._remaining = 0;
 
     // bound methods
     this._handleKeyDown = this._handleKeyDown.bind(this);
@@ -226,7 +228,11 @@ class QPBreakout extends HTMLElement {
         if (this._state === "stopped") {
           this._startGame();
         } else if (this._state === "paused") {
-          this._resumeGame();
+          if (this._remaining <= 0) {
+            this._nextLevel();
+          } else {
+            this._resumeGame();
+          }
         } else {
           this._pauseGame();
         }
@@ -234,6 +240,20 @@ class QPBreakout extends HTMLElement {
       case "Escape":
         if (this._state === "running" || this._state === "paused") {
           this._gameOver();
+        }
+        break;
+      case "t":
+        if (this._state === "running") {
+          const allBricks = this._bricks.flat().filter((b) => b.visible);
+          allBricks.slice(0, -1).forEach((b) => {
+            b.visible = false;
+            this._score += b.score;
+          });
+          this._remaining = 1;
+          this._setCounter();
+          this._bricksCanvas.clear();
+          this._drawBricks();
+          this._setOutput();
         }
         break;
     }
@@ -282,18 +302,26 @@ class QPBreakout extends HTMLElement {
 
     this._lives = QPBreakout.LIVES;
     this._score = 0;
-
+    this._level = 1;
+    this._rows = QPBreakout.ROWS;
     this._setPaddle();
+    this._initRound();
+  }
+
+  _initRound() {
+    this._gameCanvas.clear();
+    this._bricksCanvas.clear();
+
     this._setBall();
     this._setBricks();
-
-    // draw bricks on start
+    this._remaining = this._bricks.flat().filter((b) => b.visible).length;
     this._drawBricks();
     this._gameLoop();
 
     this._state = "running";
     this._setState();
-    this._setOutput(this._dict("funBreakoutStart", this._lang));
+    this._setCounter();
+    this._setOutput();
   }
 
   _pauseGame() {
@@ -310,12 +338,18 @@ class QPBreakout extends HTMLElement {
     this._setState();
   }
 
+  _nextLevel() {
+    this._level++;
+    if (this._rows < 5) this._rows++;
+    this._initRound();
+  }
+
   _gameOver() {
     this._stopLoop();
     this._gameCanvas.clear();
     this._state = "stopped";
     this._setState();
-    this._setOutput(this._dict("funBreakoutGameOver", this._lang));
+    this._setOutput();
     this._dispatchEvent("qp-breakout.game-over");
   }
 
@@ -326,9 +360,17 @@ class QPBreakout extends HTMLElement {
     this._ball.move();
 
     if (!this._checkPaddleCollision()) return;
+    // ball hits a brick
     if (this._checkBrickCollision()) {
       this._bricksCanvas.clear();
       this._drawBricks();
+      this._remaining = this._bricks.flat().filter((b) => b.visible).length;
+      this._setOutput();
+
+      if (this._remaining <= 0) {
+        this._pauseGame();
+        return;
+      }
     }
 
     this._ball.draw();
@@ -375,7 +417,7 @@ class QPBreakout extends HTMLElement {
     const brickHeight = Math.round(brickWidth / 3);
 
     for (let i = 0; i < this._rows; i++) {
-      const rowColor = this._getBrickColor(i);
+      const { color, score } = this._getBrickColor(i);
       this._bricks[i] = [];
 
       for (let j = 0; j < this._cols; j++) {
@@ -385,7 +427,8 @@ class QPBreakout extends HTMLElement {
             y: margin + i * (brickHeight + margin),
             width: brickWidth,
             height: brickHeight,
-            fill: rowColor,
+            fill: color,
+            score,
             ctx: this._bricksCanvas.ctx,
           }),
         );
@@ -468,7 +511,11 @@ class QPBreakout extends HTMLElement {
           }
 
           brick.visible = false;
-          this._score++;
+          const oldThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
+          this._score += brick.score;
+          const newThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
+          this._lives += newThreshold - oldThreshold;
+
           this._setCounter();
           // this._checkLevelUp();
           // return;
@@ -486,15 +533,24 @@ class QPBreakout extends HTMLElement {
 
   /* START - UI / Rendering */
   _setState() {
-    if (this._stateNode)
-      this._stateNode.textContent = this._dict(`scoreboardState_${this._state}`, this._lang);
+    if (this._stateNode) {
+      const state =
+        this._state === "stopped" && this._lives <= 0
+          ? this._dict("funBreakoutGameOver", this._lang)
+          : this._dict(`scoreboardState_${this._state}`, this._lang);
+
+      this._stateNode.textContent = state;
+    }
   }
   _setCounter() {
     if (this._counter)
-      this._counter.textContent = `${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}`;
+      this._counter.textContent = `${this._dict("scoreboardLevel", this._lang, this._level)}, ${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}`;
   }
-  _setOutput(output) {
-    if (this._output) this._output.textContent = output;
+  _setOutput() {
+    // const remainingBricks = this._bricks.flat().filter((b) => b.visible).length;
+
+    if (this._output)
+      this._output.textContent = `${this._dict("scoreboardRemainingBricks", this._lang, this._remaining)}`;
   }
 
   _setStyles() {
@@ -508,9 +564,9 @@ class QPBreakout extends HTMLElement {
 
     this._wrapper = this.shadowRoot.querySelector(".qp-breakout-wrapper");
 
-    this._counter = this.shadowRoot.querySelector(".qp-scoreboard-counter");
-    this._stateNode = this.shadowRoot.querySelector(".qp-scoreboard-state");
     this._output = this.shadowRoot.querySelector(".qp-scoreboard-output");
+    this._stateNode = this.shadowRoot.querySelector(".qp-scoreboard-state");
+    this._counter = this.shadowRoot.querySelector(".qp-scoreboard-counter");
   }
 
   _render() {
@@ -534,9 +590,8 @@ class QPBreakout extends HTMLElement {
     return `
     <div class="qp-scoreboard">
       <div class="qp-scoreboard-state">---</div>
-      <div class="qp-scoreboard-title"></div>
       <div class="qp-scoreboard-output">---</div>
-      <div class="qp-scoreboard-counter">${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}</div>
+      <div class="qp-scoreboard-counter">${this._dict("scoreboardLevel", this._lang, this._level)}, ${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}</div>
     </div>`;
   }
 
@@ -555,12 +610,12 @@ class QPBreakout extends HTMLElement {
   }
   _getBrickColor(row) {
     const colors = [
-      "rgba(220, 53, 69, 0.9)", // red
-      "rgba(255, 153, 0, 0.9)", // orange
-      "rgba(255, 193, 7, 0.9)", // yellow
-      "rgba(25, 135, 84, 0.9)", // green
-      "rgba(13, 110, 253, 0.9)", // blue
-      "rgba(102, 16, 242, 0.9)", // purple
+      { color: "rgba(102, 16, 242, 0.9)", score: 50 }, // red
+      { color: "rgba(13, 110, 253, 0.9)", score: 30 }, // orange
+      { color: "rgba(25, 135, 84, 0.9)", score: 25 }, // yellow
+      { color: "rgba(220, 53, 69, 0.9)", score: 20 }, // green
+      { color: "rgba(255, 153, 0, 0.9)", score: 15 }, // blue
+      { color: "rgba(255, 193, 7, 0.9)", score: 10 }, // purple
 
       // "#DC3545", // red
       // "#FF9900", // orange
@@ -570,9 +625,9 @@ class QPBreakout extends HTMLElement {
       // "#6610F2", // purple
     ];
 
-    console.log(colors[row % colors.length]);
-
-    return colors[row % colors.length];
+    const index =
+      (((colors.length - this._rows + row) % colors.length) + colors.length) % colors.length;
+    return colors[index];
   }
   /* END - UI / Rendering */
 }

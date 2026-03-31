@@ -7,6 +7,7 @@ export default class Brick {
         x: 0,
         y: 0,
         fill: "orange",
+        score: 10,
         ctx: null,
       },
       options,
@@ -22,6 +23,7 @@ export default class Brick {
     this.height = options.height;
     // brick ui
     this.fill = options.fill;
+    this.score = options.score;
     this.visible = true;
   }
 
