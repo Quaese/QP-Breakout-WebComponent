@@ -162,8 +162,19 @@ class QPBreakout extends HTMLElement {
   _defaultDict(key, lang = "de", args = []) {
     const fallback = {
       funBreakoutStart: { de: "Start", en: "Start" },
-      funBreakoutPause: { de: "Pause", en: "Pause" },
       funBreakoutStop: { de: "Stop", en: "Stop" },
+      funBreakoutPause: { de: "Pause", en: "Pause" },
+      funBreakoutGameOver: { de: "Game Over", en: "Game Over" },
+      scoreboardSize: {
+        de: `Spalten: ${args[0]}, Reihen: ${args[1]}`,
+        en: `Cols: ${args[0]}, Rows: ${args[1]}`,
+      },
+      scoreboardScore: { de: `Punkte: ${args[0]}`, en: `Score: ${args[0]}` },
+      scoreboardSpeed: { de: `Speed: ${args[0]}`, en: `Speed: ${args[0]}` },
+      scoreboardLives: { de: `Leben: ${args[0]}`, en: `Lives: ${args[0]}` },
+      scoreboardState_paused: { de: `Pausiert`, en: `Paused` },
+      scoreboardState_running: { de: `Running`, en: `Running` },
+      scoreboardState_stopped: { de: `Stop`, en: `Stopped` },
     };
 
     return fallback[key]?.[lang] || key;
@@ -270,6 +281,7 @@ class QPBreakout extends HTMLElement {
 
     this._state = "running";
     this._setState();
+    this._setOutput(this._dict("funBreakoutStart", this._lang));
   }
 
   _pauseGame() {
@@ -291,6 +303,7 @@ class QPBreakout extends HTMLElement {
     this._gameCanvas.clear();
     this._state = "stopped";
     this._setState();
+    this._setOutput(this._dict("funBreakoutGameOver", this._lang));
     this._dispatchEvent("qp-breakout.game-over");
   }
 
@@ -350,6 +363,7 @@ class QPBreakout extends HTMLElement {
       } else if (this._ball.y - this._ball.radius > this._gameCanvas.height) {
         // paddle missed — ball passed bottom
         this._lives--;
+        this._setCounter();
         this._dispatchEvent("qp-breakout.game-life-lost", { lives: this._lives });
 
         if (this._lives <= 0) {
@@ -372,6 +386,13 @@ class QPBreakout extends HTMLElement {
   _setState() {
     if (this._stateNode)
       this._stateNode.textContent = this._dict(`scoreboardState_${this._state}`, this._lang);
+  }
+  _setCounter() {
+    if (this._counter)
+      this._counter.textContent = `${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}`;
+  }
+  _setOutput(output) {
+    if (this._output) this._output.textContent = output;
   }
 
   _setStyles() {
@@ -413,7 +434,7 @@ class QPBreakout extends HTMLElement {
       <div class="qp-scoreboard-state">---</div>
       <div class="qp-scoreboard-title">${this._dict("scoreboardSize", this._lang, this._cols, this._rows)}</div>
       <div class="qp-scoreboard-output">---</div>
-      <div class="qp-scoreboard-counter">${this._dict("scoreboardSpeed", this._lang, this._speed, this._level)}</div>
+      <div class="qp-scoreboard-counter">${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}</div>
     </div>`;
   }
 
