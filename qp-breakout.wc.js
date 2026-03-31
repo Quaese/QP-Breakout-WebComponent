@@ -27,6 +27,7 @@
 
 import Dictionary, { Languages } from "./qp-breakout.dictionary.js";
 import getStyles from "./qp-breakout.styles.js";
+import Canvas from "./qp-breakout.canvas.js";
 import Paddle from "./qp-breakout.paddle.js";
 import Ball from "./qp-breakout.ball.js";
 
@@ -34,12 +35,7 @@ class QPBreakout extends HTMLElement {
   static COLS = 8;
   static ROWS = 4;
   static LIVES = 3;
-  static BALL_RADIUS = 6;
-  static BALL_SPEED_X = 3;
-  static BALL_SPEED_Y = -3;
   static PADDLE_SPEED = 6;
-  static PADDLE_HEIGHT = 12;
-  static PADDLE_WIDTH = 80;
   static BRICK_PADDING = 4;
   static BRICK_OFFSET_TOP = 40;
   static BRICK_OFFSET_LEFT = 10;
@@ -54,7 +50,7 @@ class QPBreakout extends HTMLElement {
   };
 
   static get observedAttributes() {
-    return ["width", "height", "lang"];
+    return ["width", "scale", "lang"];
   }
 
   constructor() {
@@ -64,15 +60,15 @@ class QPBreakout extends HTMLElement {
 
     // attributes
     this._lang = "de";
-    this._canvasWidth = 480;
-    this._canvasHeight = 320;
-    this._canvasScale = 0.75;
+    this._width = null;
+    this._scale = 0.75;
     this._cols = QPBreakout.COLS;
     this._rows = QPBreakout.ROWS;
 
+    // canvas
+    this._gameCanvas = null;
+
     // nodes
-    this._canvas = null;
-    this._ctx = null;
     this._wrapper = null;
     this._counter = null;
     this._output = null;
@@ -81,27 +77,20 @@ class QPBreakout extends HTMLElement {
     this._btnStart = null;
     this._btnPause = null;
 
-    // observers and timers
-    this._observer = null;
-
-    // properties
-    this._dpr = window.devicePixelRatio || 1;
-
     // game state
     this._hLoopTimer = null;
     this._ball = { x: 0, y: 0, dx: 0, dy: 0 };
-    this._paddle = null; //{ x: 0, width: QPBreakout.PADDLE_WIDTH };
+    this._paddle = null;
     this._bricks = [];
     this._score = 0;
     this._lives = QPBreakout.LIVES;
-    this._speed = QPBreakout.BALL_SPEED;
+    this._speed = 0;
     this._level = 1;
     this._state = "stopped";
 
     // bound methods
     this._handleKeyDown = this._handleKeyDown.bind(this);
     this._handleKeyUp = this._handleKeyUp.bind(this);
-    this._resizeCanvas = this._resizeCanvas.bind(this);
     this._checkPaddleCollision = this._checkPaddleCollision.bind(this);
     this._gameLoop = this._gameLoop.bind(this);
     // this._handleStopClick = this._handleStopClick.bind(this);
@@ -126,12 +115,10 @@ class QPBreakout extends HTMLElement {
 
     switch (name) {
       case "width":
-        this._canvasWidth = Number(newValue) || this._canvasWidth;
-        this._resizeCanvas();
+        this._width = Number(newValue) || null;
         break;
-      case "height":
-        this._canvasHeight = Number(newValue) || this._canvasHeight;
-        this._resizeCanvas();
+      case "scale":
+        this._scale = Math.min(Number(newValue) || 0.75, 1);
         break;
       case "lang":
         this._lang = newValue;
@@ -139,14 +126,14 @@ class QPBreakout extends HTMLElement {
         break;
     }
 
-    if (this.isConnected && this._canvas) {
+    if (this.isConnected && this._gameCanvas) {
       this._render();
     }
   }
 
   _reset() {
     this._removeEvents();
-    this._observer?.disconnect();
+    this._gameCanvas?.destroy();
   }
   /* END - Lifecycle */
 
@@ -259,36 +246,23 @@ class QPBreakout extends HTMLElement {
   /* END - Event Handlers */
 
   /* START - Canvas Controller */
-  _setCanvas() {
-    this._canvas = this.shadowRoot.querySelector(".qp-breakout-canvas");
-    this._ctx = this._canvas ? this._canvas.getContext("2d") : null;
-
-    this._resizeCanvas();
-  }
-
-  _clearCanvas() {
-    this._ctx.clearRect(0, 0, this._canvasWidth, this._canvasHeight);
-  }
-
-  _resizeCanvas() {
-    if (!this._wrapper) return;
-
-    this._canvasWidth = this._wrapper.offsetWidth * this._canvasScale;
-    this._canvasHeight = (this._canvasWidth * 2) / 3;
-
-    this._canvas.style.width = this._canvasWidth + "px";
-    this._canvas.style.height = this._canvasHeight + "px";
-
-    this._canvas.width = this._canvasWidth * this._dpr;
-    this._canvas.height = this._canvasHeight * this._dpr;
-
-    this._ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+  _initCanvas() {
+    this._gameCanvas = new Canvas({
+      wrapper: this._wrapper,
+      width: this._width,
+      scale: this._scale,
+    });
+    this._gameCanvas.create();
+    this._gameCanvas.observe();
   }
   /* END - Canvas Controller */
 
   /* START - Game Controller */
   _startGame() {
     if (this._state === "running") return;
+
+    this._lives = QPBreakout.LIVES;
+    this._score = 0;
 
     this._setPaddle();
     this._setBall();
@@ -314,14 +288,14 @@ class QPBreakout extends HTMLElement {
 
   _gameOver() {
     this._stopLoop();
-    this._clearCanvas();
+    this._gameCanvas.clear();
     this._state = "stopped";
     this._setState();
     this._dispatchEvent("qp-breakout.game-over");
   }
 
   _gameLoop() {
-    this._clearCanvas();
+    this._gameCanvas.clear();
 
     this._paddle.move();
     this._ball.move();
@@ -343,29 +317,29 @@ class QPBreakout extends HTMLElement {
 
   _setPaddle() {
     this._paddle = new Paddle({
-      paddleWidth: QPBreakout.PADDLE_WIDTH,
-      paddleHeight: QPBreakout.PADDLE_HEIGHT,
+      paddleWidth: Math.round(this._gameCanvas.width / 6),
+      paddleHeight: Math.round(this._gameCanvas.width / 6 / 7),
       speed: QPBreakout.PADDLE_SPEED,
-      canvasWidth: this._canvasWidth,
-      canvasHeight: this._canvasHeight,
-      ctx: this._ctx,
+      canvasWidth: this._gameCanvas.width,
+      canvasHeight: this._gameCanvas.height,
+      ctx: this._gameCanvas.ctx,
     });
   }
 
   _setBall() {
     this._ball = new Ball({
-      ballRadius: QPBreakout.BALL_RADIUS,
-      speedX: QPBreakout.BALL_SPEED_X,
-      speedY: QPBreakout.BALL_SPEED_Y,
-      canvasWidth: this._canvasWidth,
-      canvasHeight: this._canvasHeight,
-      ctx: this._ctx,
+      ballRadius: Math.round(this._gameCanvas.width / 80),
+      speedX: Math.round(this._gameCanvas.width / 120),
+      speedY: -Math.round(this._gameCanvas.width / 120),
+      canvasWidth: this._gameCanvas.width,
+      canvasHeight: this._gameCanvas.height,
+      ctx: this._gameCanvas.ctx,
     });
   }
 
   _checkPaddleCollision() {
-    // ball is at paddle height
-    if (this._ball.y + this._ball.radius >= this._paddle.y) {
+    // ball is at paddle height and moving downward
+    if (this._ball.dy > 0 && this._ball.y + this._ball.radius >= this._paddle.y) {
       // ball hits paddle
       if (
         this._ball.y + this._ball.radius < this._paddle.y + this._paddle.height &&
@@ -373,7 +347,7 @@ class QPBreakout extends HTMLElement {
         this._ball.x - this._ball.radius < this._paddle.x + this._paddle.width
       ) {
         this._ball.dy *= -1;
-      } else if (this._ball.y - this._ball.radius > this._canvasHeight) {
+      } else if (this._ball.y - this._ball.radius > this._gameCanvas.height) {
         // paddle missed — ball passed bottom
         this._lives--;
         this._dispatchEvent("qp-breakout.game-life-lost", { lives: this._lives });
@@ -395,11 +369,6 @@ class QPBreakout extends HTMLElement {
   /* END - Game Logic (Helpers) */
 
   /* START - UI / Rendering */
-  _setObserver() {
-    this._observer = new ResizeObserver(this._resizeCanvas);
-    this._observer.observe(this._wrapper);
-  }
-
   _setState() {
     if (this._stateNode)
       this._stateNode.textContent = this._dict(`scoreboardState_${this._state}`, this._lang);
@@ -433,8 +402,7 @@ class QPBreakout extends HTMLElement {
 
     if (this.isConnected) {
       this._setNodes();
-      this._setCanvas();
-      this._setObserver();
+      this._initCanvas();
       this._attachEvents();
     }
   }
@@ -451,9 +419,7 @@ class QPBreakout extends HTMLElement {
 
   _createCanvas() {
     return `
-      <div class="qp-breakout-wrapper">
-        <canvas class="qp-breakout-canvas" width="${this._canvasWidth}" height="${this._canvasHeight}"></canvas>
-      </div>`;
+      <div class="qp-breakout-wrapper"></div>`;
   }
 
   _createButtonBar() {
