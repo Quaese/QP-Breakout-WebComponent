@@ -40,10 +40,12 @@ export default class Ball {
     this.x += this.dx;
     this.y += this.dy;
 
-    // collision with wall (left/right) => reverse direction (invert sign)
-    if (this.x - this.radius < 0 || this.x + 2 * this.radius > this.canvasWidth) this.dx *= -1;
-    // collision with ceiling (top) => reverse direction
-    if (this.y - this.radius < 0) this.dy *= -1;
+    // collision with left wall (moving left)
+    if (this.dx < 0 && this.x - this.radius < 0) this.dx *= -1;
+    // collision with right wall (moving right)
+    if (this.dx > 0 && this.x + this.radius > this.canvasWidth) this.dx *= -1;
+    // collision with ceiling (moving up)
+    if (this.dy < 0 && this.y - this.radius < 0) this.dy *= -1;
   }
 
   pos() {
