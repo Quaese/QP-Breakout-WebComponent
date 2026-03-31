@@ -359,7 +359,15 @@ class QPBreakout extends HTMLElement {
         this._ball.x + this._ball.radius > this._paddle.x &&
         this._ball.x - this._ball.radius < this._paddle.x + this._paddle.width
       ) {
-        this._ball.dy *= -1;
+        // offset: -1 (left edge) to +1 (right edge)
+        const hitPoint = (this._ball.x - (this._paddle.x + this._paddle.width / 2)) / (this._paddle.width / 2);
+        // angle: 150° (left) to 30° (right) — center = 90° (vertical)
+        const angle = (1 - hitPoint) * Math.PI / 3 + Math.PI / 6;
+        // preserve speed
+        const speed = Math.sqrt(this._ball.dx ** 2 + this._ball.dy ** 2);
+
+        this._ball.dx = speed * Math.cos(angle);
+        this._ball.dy = -speed * Math.sin(angle);
       } else if (this._ball.y - this._ball.radius > this._gameCanvas.height) {
         // paddle missed — ball passed bottom
         this._lives--;
