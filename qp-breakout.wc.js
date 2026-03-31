@@ -78,6 +78,11 @@ class QPBreakout extends HTMLElement {
     // game state
     this._hLoopTimer = null;
     this._ball = { x: 0, y: 0, dx: 0, dy: 0 };
+    this._ballSpeed = {
+      // greater values => slower ball
+      x: 140,
+      y: 140,
+    };
     this._paddle = null;
     this._bricks = [];
     this._rows = QPBreakout.ROWS;
@@ -263,15 +268,13 @@ class QPBreakout extends HTMLElement {
     Object.keys(QPBreakout.PREVENT_KEYCODES).map(Number).includes(e.keyCode) && e.preventDefault();
 
     if (this._state !== "running") return;
-    this._paddle.setSpeed("right", 0);
-    // switch (e.key) {
-    //   case "ArrowRight":
-    //     this._paddle.setSpeed("right", 0);
-    //     break;
-    //   case "ArrowLeft":
-    //     this._paddle.setSpeed("left", 0);
-    //     break;
-    // }
+
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowLeft":
+        this._paddle.setSpeed("right", 0);
+        break;
+    }
   }
   /* END - Event Handlers */
 
@@ -400,8 +403,8 @@ class QPBreakout extends HTMLElement {
   _setBall() {
     this._ball = new Ball({
       ballRadius: Math.round(this._gameCanvas.width / 80),
-      speedX: Math.round(this._gameCanvas.width / 120),
-      speedY: -Math.round(this._gameCanvas.width / 120),
+      speedX: Math.round(this._gameCanvas.width / this._ballSpeed.x),
+      speedY: -Math.round(this._gameCanvas.width / this._ballSpeed.y),
       canvasWidth: this._gameCanvas.width,
       canvasHeight: this._gameCanvas.height,
       ctx: this._gameCanvas.ctx,

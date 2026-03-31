@@ -5,7 +5,7 @@ export default class Canvas {
         wrapper: null,
         width: null,
         scale: 0.75,
-        aspectRatio: 2 / 3,
+        aspectRatio: 1,
         cssClass: "qp-breakout-canvas",
       },
       options,
