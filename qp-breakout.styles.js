@@ -27,16 +27,25 @@ function getStyles() {
         }
 
         .qp-breakout-wrapper {
+          position: relative;
           display: flex;
           justify-content: center;
           width: 100%;
           padding: 2rem 0;
         }
+          
+        canvas {
+          position: absolute;
+          border-radius: 4px;
+        }
 
         .qp-breakout-canvas {
+          z-index: 10;
           border: 1px solid #ddd;
-          border-radius: 4px;
-          background-color: rgba(241, 241, 241, 0.5);
+          // background-color: rgba(241, 241, 241, 0.5);
+        }
+        .qp-breakout-bricks-canvas {
+          z-index: 9;
         }
 
         /* Prevent Events */
@@ -233,6 +242,6 @@ function getStyles() {
         }
       </style>
     `;
-};
+}
 
 export default getStyles;

@@ -52,6 +52,7 @@ export default class Canvas {
 
     this.el.style.width = this.width + "px";
     this.el.style.height = this.height + "px";
+    this._wrapper.style.height = this.height + "px";
 
     this.el.width = this.width * this._dpr;
     this.el.height = this.height * this._dpr;

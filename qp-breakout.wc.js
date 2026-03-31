@@ -30,15 +30,13 @@ import getStyles from "./qp-breakout.styles.js";
 import Canvas from "./qp-breakout.canvas.js";
 import Paddle from "./qp-breakout.paddle.js";
 import Ball from "./qp-breakout.ball.js";
+import Brick from "./qp-bereakout.brick.js";
 
 class QPBreakout extends HTMLElement {
   static COLS = 8;
   static ROWS = 4;
   static LIVES = 3;
   static PADDLE_SPEED = 6;
-  static BRICK_PADDING = 4;
-  static BRICK_OFFSET_TOP = 40;
-  static BRICK_OFFSET_LEFT = 10;
   static PREVENT_KEYCODES = {
     13: "Enter",
     27: "Escape",
@@ -62,11 +60,10 @@ class QPBreakout extends HTMLElement {
     this._lang = "de";
     this._width = null;
     this._scale = 0.75;
-    this._cols = QPBreakout.COLS;
-    this._rows = QPBreakout.ROWS;
 
     // canvas
     this._gameCanvas = null;
+    this._bricksCanvas = null;
 
     // nodes
     this._wrapper = null;
@@ -82,6 +79,8 @@ class QPBreakout extends HTMLElement {
     this._ball = { x: 0, y: 0, dx: 0, dy: 0 };
     this._paddle = null;
     this._bricks = [];
+    this._rows = QPBreakout.ROWS;
+    this._cols = QPBreakout.COLS;
     this._score = 0;
     this._lives = QPBreakout.LIVES;
     this._speed = 0;
@@ -126,7 +125,7 @@ class QPBreakout extends HTMLElement {
         break;
     }
 
-    if (this.isConnected && this._gameCanvas) {
+    if (this.isConnected && this._gameCanvas && this._bricksCanvas) {
       this._render();
     }
   }
@@ -265,7 +264,16 @@ class QPBreakout extends HTMLElement {
     });
     this._gameCanvas.create();
     this._gameCanvas.observe();
+
+    this._bricksCanvas = new Canvas({
+      wrapper: this._wrapper,
+      width: this._width,
+      scale: this._scale,
+      cssClass: "qp-breakout-bricks-canvas",
+    });
+    this._bricksCanvas.create();
   }
+
   /* END - Canvas Controller */
 
   /* START - Game Controller */
@@ -277,6 +285,10 @@ class QPBreakout extends HTMLElement {
 
     this._setPaddle();
     this._setBall();
+    this._setBricks();
+
+    // draw bricks on start
+    this._drawBricks();
     this._gameLoop();
 
     this._state = "running";
@@ -314,6 +326,10 @@ class QPBreakout extends HTMLElement {
     this._ball.move();
 
     if (!this._checkPaddleCollision()) return;
+    if (this._checkBrickCollision()) {
+      this._bricksCanvas.clear();
+      this._drawBricks();
+    }
 
     this._ball.draw();
     this._paddle.draw();
@@ -350,6 +366,41 @@ class QPBreakout extends HTMLElement {
     });
   }
 
+  _setBricks() {
+    this._bricks = [];
+
+    const cw = this._bricksCanvas.width;
+    const margin = Math.round(cw / 100);
+    const brickWidth = (cw - margin * (this._cols + 1)) / this._cols;
+    const brickHeight = Math.round(brickWidth / 3);
+
+    for (let i = 0; i < this._rows; i++) {
+      const rowColor = this._getBrickColor(i);
+      this._bricks[i] = [];
+
+      for (let j = 0; j < this._cols; j++) {
+        this._bricks[i].push(
+          new Brick({
+            x: margin + j * (brickWidth + margin),
+            y: margin + i * (brickHeight + margin),
+            width: brickWidth,
+            height: brickHeight,
+            fill: rowColor,
+            ctx: this._bricksCanvas.ctx,
+          }),
+        );
+      }
+    }
+  }
+
+  _drawBricks() {
+    for (let row = 0; row < this._rows; row++) {
+      for (let col = 0; col < this._cols; col++) {
+        this._bricks[row][col].visible && this._bricks[row][col].draw();
+      }
+    }
+  }
+
   _checkPaddleCollision() {
     // ball is at paddle height and moving downward
     if (this._ball.dy > 0 && this._ball.y + this._ball.radius >= this._paddle.y) {
@@ -360,9 +411,10 @@ class QPBreakout extends HTMLElement {
         this._ball.x - this._ball.radius < this._paddle.x + this._paddle.width
       ) {
         // offset: -1 (left edge) to +1 (right edge)
-        const hitPoint = (this._ball.x - (this._paddle.x + this._paddle.width / 2)) / (this._paddle.width / 2);
+        const hitPoint =
+          (this._ball.x - (this._paddle.x + this._paddle.width / 2)) / (this._paddle.width / 2);
         // angle: 150° (left) to 30° (right) — center = 90° (vertical)
-        const angle = (1 - hitPoint) * Math.PI / 3 + Math.PI / 6;
+        const angle = ((1 - hitPoint) * Math.PI) / 3 + Math.PI / 6;
         // preserve speed
         const speed = Math.sqrt(this._ball.dx ** 2 + this._ball.dy ** 2);
 
@@ -384,6 +436,48 @@ class QPBreakout extends HTMLElement {
     }
 
     return true;
+  }
+
+  _checkBrickCollision() {
+    const radius = this._ball.radius;
+    let _hasCollision = false;
+
+    for (let i = 0; i < this._rows; i++) {
+      for (let j = 0; j < this._cols; j++) {
+        const brick = this._bricks[i][j];
+
+        if (!brick.visible) continue;
+
+        // ball edges vs brick bounds
+        if (
+          this._ball.x + radius > brick.x &&
+          this._ball.x - radius < brick.x + brick.width &&
+          this._ball.y + radius > brick.y &&
+          this._ball.y - radius < brick.y + brick.height
+        ) {
+          // determine hit side based on direction
+          if (this._ball.dy < 0 && this._ball.y - radius <= brick.y + brick.height) {
+            // hit from below (ball moving up)
+            this._ball.dy *= -1;
+          } else if (this._ball.dy > 0 && this._ball.y + radius >= brick.y) {
+            // hit from above (ball moving down)
+            this._ball.dy *= -1;
+          } else {
+            // hit from left or right
+            this._ball.dx *= -1;
+          }
+
+          brick.visible = false;
+          this._score++;
+          this._setCounter();
+          // this._checkLevelUp();
+          // return;
+          _hasCollision = true;
+        }
+      }
+    }
+
+    return _hasCollision;
   }
   /* END - Game Controller */
 
@@ -440,7 +534,7 @@ class QPBreakout extends HTMLElement {
     return `
     <div class="qp-scoreboard">
       <div class="qp-scoreboard-state">---</div>
-      <div class="qp-scoreboard-title">${this._dict("scoreboardSize", this._lang, this._cols, this._rows)}</div>
+      <div class="qp-scoreboard-title"></div>
       <div class="qp-scoreboard-output">---</div>
       <div class="qp-scoreboard-counter">${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}</div>
     </div>`;
@@ -459,7 +553,6 @@ class QPBreakout extends HTMLElement {
         <button class="qp-btn qp-btn-secondary qp-breakout-btn-stop">${this._dict("funBreakoutStop", this._lang)}</button>
       </div>`;
   }
-
   _getBrickColor(row) {
     const colors = [
       "rgba(220, 53, 69, 0.9)", // red
@@ -468,7 +561,16 @@ class QPBreakout extends HTMLElement {
       "rgba(25, 135, 84, 0.9)", // green
       "rgba(13, 110, 253, 0.9)", // blue
       "rgba(102, 16, 242, 0.9)", // purple
+
+      // "#DC3545", // red
+      // "#FF9900", // orange
+      // "#FFC107", // yellow
+      // "#198754", // green
+      // "#0D6EFD", // blue
+      // "#6610F2", // purple
     ];
+
+    console.log(colors[row % colors.length]);
 
     return colors[row % colors.length];
   }
