@@ -31,6 +31,7 @@ import Canvas from "./qp-breakout.canvas.js";
 import Paddle from "./qp-breakout.paddle.js";
 import Ball from "./qp-breakout.ball.js";
 import Brick from "./qp-bereakout.brick.js";
+import { BRICK_TYPES, LEVELS } from "./qp-breakout.levels.js";
 
 class QPBreakout extends HTMLElement {
   static COLS = 8;
@@ -85,8 +86,9 @@ class QPBreakout extends HTMLElement {
     };
     this._paddle = null;
     this._bricks = [];
-    this._rows = QPBreakout.ROWS;
     this._cols = QPBreakout.COLS;
+    this._levels = LEVELS;
+    this._currentLevelDef = null;
     this._score = 0;
     this._lives = QPBreakout.LIVES;
     this._speed = 0;
@@ -99,9 +101,9 @@ class QPBreakout extends HTMLElement {
     this._handleKeyUp = this._handleKeyUp.bind(this);
     this._checkPaddleCollision = this._checkPaddleCollision.bind(this);
     this._gameLoop = this._gameLoop.bind(this);
-    // this._handleStopClick = this._handleStopClick.bind(this);
+    this._handleStopClick = this._handleStopClick.bind(this);
     this._handleStartClick = this._handleStartClick.bind(this);
-    // this._handlePauseClick = this._handlePauseClick.bind(this);
+    this._handlePauseClick = this._handlePauseClick.bind(this);
 
     this._initializeDictionary();
   }
@@ -191,6 +193,8 @@ class QPBreakout extends HTMLElement {
 
   _attachEvents() {
     this._btnStart && this._btnStart.addEventListener("click", this._handleStartClick);
+    this._btnPause && this._btnPause.addEventListener("click", this._handlePauseClick);
+    this._btnStop && this._btnStop.addEventListener("click", this._handleStopClick);
 
     window.addEventListener("keydown", this._handleKeyDown);
     window.addEventListener("keyup", this._handleKeyUp);
@@ -198,6 +202,8 @@ class QPBreakout extends HTMLElement {
 
   _removeEvents() {
     this._btnStart && this._btnStart.removeEventListener("click", this._handleStartClick);
+    this._btnPause && this._btnPause.removeEventListener("click", this._handlePauseClick);
+    this._btnStop && this._btnStop.removeEventListener("click", this._handleStopClick);
 
     window.removeEventListener("keydown", this._handleKeyDown);
     window.removeEventListener("keyup", this._handleKeyUp);
@@ -218,6 +224,25 @@ class QPBreakout extends HTMLElement {
   _handleStartClick() {
     this._startGame();
   }
+  _handleStopClick() {
+    if (this._state === "running" || this._state === "paused") {
+      this._gameOver();
+    }
+  }
+
+  _handlePauseClick() {
+    if (this._state === "stopped") {
+      this._startGame();
+    } else if (this._state === "paused") {
+      if (this._remaining <= 0) {
+        this._nextLevel();
+      } else {
+        this._resumeGame();
+      }
+    } else {
+      this._pauseGame();
+    }
+  }
 
   _handleKeyDown(e) {
     Object.keys(QPBreakout.PREVENT_KEYCODES).map(Number).includes(e.keyCode) && e.preventDefault();
@@ -230,22 +255,24 @@ class QPBreakout extends HTMLElement {
         if (this._state === "running") this._paddle.setSpeed("left");
         break;
       case " ":
-        if (this._state === "stopped") {
-          this._startGame();
-        } else if (this._state === "paused") {
-          if (this._remaining <= 0) {
-            this._nextLevel();
-          } else {
-            this._resumeGame();
-          }
-        } else {
-          this._pauseGame();
-        }
+        // if (this._state === "stopped") {
+        //   this._startGame();
+        // } else if (this._state === "paused") {
+        //   if (this._remaining <= 0) {
+        //     this._nextLevel();
+        //   } else {
+        //     this._resumeGame();
+        //   }
+        // } else {
+        //   this._pauseGame();
+        // }
+        this._handlePauseClick();
         break;
       case "Escape":
-        if (this._state === "running" || this._state === "paused") {
-          this._gameOver();
-        }
+        // if (this._state === "running" || this._state === "paused") {
+        //   this._gameOver();
+        // }
+        this._handleStopClick();
         break;
       case "t":
         if (this._state === "running") {
@@ -306,7 +333,8 @@ class QPBreakout extends HTMLElement {
     this._lives = QPBreakout.LIVES;
     this._score = 0;
     this._level = 1;
-    this._rows = QPBreakout.ROWS;
+    // load level definition (predefined or random with increasing difficulty)
+    this._currentLevelDef = this._getLevelDef(this._level);
     this._setPaddle();
     this._initRound();
   }
@@ -343,7 +371,8 @@ class QPBreakout extends HTMLElement {
 
   _nextLevel() {
     this._level++;
-    if (this._rows < 5) this._rows++;
+    // advance to next level definition (predefined or random)
+    this._currentLevelDef = this._getLevelDef(this._level);
     this._initRound();
   }
 
@@ -412,36 +441,71 @@ class QPBreakout extends HTMLElement {
   }
 
   _setBricks() {
+    const levelDef = this._currentLevelDef;
+    let layout;
+
+    if (levelDef && levelDef.layout) {
+      // predefined board: use the exact layout from the level definition
+      layout = levelDef.layout;
+    } else if (levelDef && levelDef.random) {
+      // random board: generate layout based on difficulty parameters
+      layout = this._generateRandomLayout(levelDef.random);
+    } else {
+      // fallback: full grid matching original behavior
+      layout = this._generateFullGrid(QPBreakout.ROWS, this._cols);
+    }
+
     this._bricks = [];
+    const rows = layout.length;
+    const cols = Math.max(...layout.map((r) => r.length));
 
     const cw = this._bricksCanvas.width;
     const margin = Math.round(cw / 100);
-    const brickWidth = (cw - margin * (this._cols + 1)) / this._cols;
+    const brickWidth = (cw - margin * (cols + 1)) / cols;
     const brickHeight = Math.round(brickWidth / 3);
 
-    for (let i = 0; i < this._rows; i++) {
-      const { color, score } = this._getBrickColor(i);
+    for (let i = 0; i < rows; i++) {
       this._bricks[i] = [];
 
-      for (let j = 0; j < this._cols; j++) {
-        this._bricks[i].push(
-          new Brick({
+      for (let j = 0; j < cols; j++) {
+        const typeId = layout[i][j] || 0;
+        const brickType = BRICK_TYPES[typeId];
+
+        if (!brickType) {
+          // empty cell — invisible placeholder to maintain grid structure
+          const brick = new Brick({
             x: margin + j * (brickWidth + margin),
             y: margin + i * (brickHeight + margin),
             width: brickWidth,
             height: brickHeight,
-            fill: color,
-            score,
+            fill: "transparent",
+            score: 0,
+            hits: 0,
             ctx: this._bricksCanvas.ctx,
-          }),
-        );
+          });
+          brick.visible = false;
+          this._bricks[i].push(brick);
+        } else {
+          this._bricks[i].push(
+            new Brick({
+              x: margin + j * (brickWidth + margin),
+              y: margin + i * (brickHeight + margin),
+              width: brickWidth,
+              height: brickHeight,
+              fill: brickType.color,
+              score: brickType.score,
+              hits: brickType.hits,
+              ctx: this._bricksCanvas.ctx,
+            }),
+          );
+        }
       }
     }
   }
 
   _drawBricks() {
-    for (let row = 0; row < this._rows; row++) {
-      for (let col = 0; col < this._cols; col++) {
+    for (let row = 0; row < this._bricks.length; row++) {
+      for (let col = 0; col < this._bricks[row].length; col++) {
         this._bricks[row][col].visible && this._bricks[row][col].draw();
       }
     }
@@ -488,8 +552,8 @@ class QPBreakout extends HTMLElement {
     const radius = this._ball.radius;
     let _hasCollision = false;
 
-    for (let i = 0; i < this._rows; i++) {
-      for (let j = 0; j < this._cols; j++) {
+    for (let i = 0; i < this._bricks.length; i++) {
+      for (let j = 0; j < this._bricks[i].length; j++) {
         const brick = this._bricks[i][j];
 
         if (!brick.visible) continue;
@@ -513,15 +577,16 @@ class QPBreakout extends HTMLElement {
             this._ball.dx *= -1;
           }
 
-          brick.visible = false;
-          const oldThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
-          this._score += brick.score;
-          const newThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
-          this._lives += newThreshold - oldThreshold;
+          // multi-hit: only score when brick is destroyed
+          const destroyed = brick.hit();
+          if (destroyed) {
+            const oldThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
+            this._score += brick.score;
+            const newThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
+            this._lives += newThreshold - oldThreshold;
+          }
 
           this._setCounter();
-          // this._checkLevelUp();
-          // return;
           _hasCollision = true;
         }
       }
@@ -532,6 +597,83 @@ class QPBreakout extends HTMLElement {
   /* END - Game Controller */
 
   /* START - Game Logic (Helpers) */
+  _getLevelDef(level) {
+    const index = level - 1;
+
+    // predefined level available
+    if (index < this._levels.length) {
+      return this._levels[index];
+    }
+
+    // beyond predefined levels: generate random with increasing difficulty
+    const extraLevels = index - this._levels.length + 1;
+    return {
+      name: "Random",
+      random: {
+        rows: Math.min(7, 4 + Math.floor(extraLevels / 2)),
+        cols: this._cols,
+        fillRatio: Math.min(0.9, 0.5 + extraLevels * 0.05),
+        maxType: Math.min(8, 6 + Math.floor(extraLevels / 3)),
+      },
+    };
+  }
+
+  _generateRandomLayout({ rows, cols, fillRatio = 0.7, maxType = 6 }) {
+    rows = rows || QPBreakout.ROWS;
+    cols = cols || QPBreakout.COLS;
+
+    const totalCells = rows * cols;
+    const targetBricks = Math.max(1, Math.round(totalCells * fillRatio));
+
+    // empty grid
+    const layout = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+    // collect all positions and shuffle (Fisher-Yates)
+    const positions = [];
+
+    // collect all positions in a flat array
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        positions.push([row, col]);
+      }
+    }
+    // Fisher-Yates Shuffle: swap each position with a random position
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+
+    // place bricks
+    for (let i = 0; i < targetBricks; i++) {
+      const [row, col] = positions[i];
+      // type based on row: top rows = higher type/score
+      const type = Math.min(maxType, Math.max(1, Math.ceil(((rows - row) / rows) * maxType)));
+
+      layout[row][col] = type;
+    }
+
+    // playability guarantee: bottom row must not be completely empty
+    const bottomRow = layout[rows - 1];
+
+    // if all cells in bottom row are empty (layout=[0,0,0,0]), add a random brick
+    if (bottomRow.every((cell) => cell === 0)) {
+      bottomRow[Math.floor(Math.random() * cols)] = 1;
+    }
+
+    return layout;
+  }
+
+  _generateFullGrid(rows, cols) {
+    const layout = [];
+
+    for (let row = 0; row < rows; row++) {
+      const type = Math.min(6, Math.max(1, rows - row));
+      layout.push(Array(cols).fill(type));
+    }
+
+    return layout;
+  }
   /* END - Game Logic (Helpers) */
 
   /* START - UI / Rendering */
@@ -610,27 +752,6 @@ class QPBreakout extends HTMLElement {
         <button class="qp-btn qp-btn-cta qp-breakout-btn-pause">${this._dict("funBreakoutPause", this._lang)}</button>
         <button class="qp-btn qp-btn-secondary qp-breakout-btn-stop">${this._dict("funBreakoutStop", this._lang)}</button>
       </div>`;
-  }
-  _getBrickColor(row) {
-    const colors = [
-      { color: "rgba(102, 16, 242, 0.9)", score: 50 }, // red
-      { color: "rgba(13, 110, 253, 0.9)", score: 30 }, // orange
-      { color: "rgba(25, 135, 84, 0.9)", score: 25 }, // yellow
-      { color: "rgba(220, 53, 69, 0.9)", score: 20 }, // green
-      { color: "rgba(255, 153, 0, 0.9)", score: 15 }, // blue
-      { color: "rgba(255, 193, 7, 0.9)", score: 10 }, // purple
-
-      // "#DC3545", // red
-      // "#FF9900", // orange
-      // "#FFC107", // yellow
-      // "#198754", // green
-      // "#0D6EFD", // blue
-      // "#6610F2", // purple
-    ];
-
-    const index =
-      (((colors.length - this._rows + row) % colors.length) + colors.length) % colors.length;
-    return colors[index];
   }
   /* END - UI / Rendering */
 }

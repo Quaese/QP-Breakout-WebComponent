@@ -8,6 +8,7 @@ export default class Brick {
         y: 0,
         fill: "orange",
         score: 10,
+        hits: 1,
         ctx: null,
       },
       options,
@@ -24,13 +25,41 @@ export default class Brick {
     // brick ui
     this.fill = options.fill;
     this.score = options.score;
+    // multi-hit
+    this.hits = options.hits;
+    this.maxHits = options.hits;
     this.visible = true;
+  }
+
+  /**
+   * Register a hit on this brick.
+   * @returns {boolean} true if the brick was destroyed (hits reached 0)
+   */
+  hit() {
+    if (!this.visible) return false;
+
+    this.hits--;
+
+    if (this.hits <= 0) {
+      this.visible = false;
+      return true;
+    }
+
+    return false;
   }
 
   draw() {
     if (!this.visible) return;
 
-    this.ctx.fillStyle = this.fill;
+    // Multi-hit visual feedback: reduce opacity as hits decrease
+    if (this.maxHits > 1) {
+      const ratio = this.hits / this.maxHits;
+      const alpha = 0.4 + 0.5 * ratio;
+      this.ctx.fillStyle = this.fill.replace(/[\d.]+\)$/, `${alpha})`);
+    } else {
+      this.ctx.fillStyle = this.fill;
+    }
+
     this.ctx.fillRect(this.x, this.y, this.width, this.height);
   }
 }
