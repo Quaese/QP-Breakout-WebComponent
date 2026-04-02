@@ -25,6 +25,7 @@ export const LEVELS = [
   // Level 1: Classic — full grid (matches original behavior)
   {
     name: "Classic",
+    score: 100,
     layout: [
       [6, 6, 6, 6, 6, 6, 6, 6],
       [5, 5, 5, 5, 5, 5, 5, 5],
@@ -36,6 +37,7 @@ export const LEVELS = [
   // Level 2: Checkerboard pattern
   {
     name: "Checkerboard",
+    score: 150,
     layout: [
       [5, 0, 5, 0, 5, 0, 5, 0],
       [0, 4, 0, 4, 0, 4, 0, 4],
@@ -48,6 +50,7 @@ export const LEVELS = [
   // Level 3: Diamond shape
   {
     name: "Diamond",
+    score: 200,
     layout: [
       [0, 0, 0, 6, 6, 0, 0, 0],
       [0, 0, 5, 5, 5, 5, 0, 0],
@@ -62,6 +65,7 @@ export const LEVELS = [
   // Level 4: Fortress — with multi-hit bricks
   {
     name: "Fortress",
+    score: 250,
     layout: [
       [7, 7, 7, 8, 8, 7, 7, 7],
       [6, 0, 0, 0, 0, 0, 0, 6],
@@ -74,6 +78,7 @@ export const LEVELS = [
   // Level 5: Stripes — horizontal gaps
   {
     name: "Stripes",
+    score: 300,
     layout: [
       [6, 6, 6, 6, 6, 6, 6, 6],
       [0, 0, 0, 0, 0, 0, 0, 0],
@@ -86,6 +91,7 @@ export const LEVELS = [
   // Level 6: Random
   {
     name: "Random",
+    score: 500,
     random: { rows: 5, cols: 8, fillRatio: 0.6, maxType: 6 },
   },
 ];

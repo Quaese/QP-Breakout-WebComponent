@@ -7,11 +7,13 @@ export default class Canvas {
         scale: 0.75,
         aspectRatio: 1,
         cssClass: "qp-breakout-canvas",
+        onResize: null,
       },
       options,
     );
 
     this._wrapper = options.wrapper;
+    this._onResize = options.onResize;
     this._fixedWidth = options.width;
     this._scale = options.scale;
     this._aspectRatio = options.aspectRatio;
@@ -58,6 +60,8 @@ export default class Canvas {
     this.el.height = this.height * this._dpr;
 
     this.ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+
+    if (this._onResize && typeof this._onResize === "function") this._onResize();
   }
 
   clear() {

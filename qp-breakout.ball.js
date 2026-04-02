@@ -8,7 +8,8 @@ export default class Ball {
         speedX: 3,
         speedY: -3,
         ctx: null,
-        fill: "#000000",
+        fill: "#ffb347",
+        // fill: "#ff9933",
       },
       options,
     );

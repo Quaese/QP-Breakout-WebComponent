@@ -32,6 +32,7 @@ import Paddle from "./qp-breakout.paddle.js";
 import Ball from "./qp-breakout.ball.js";
 import Brick from "./qp-bereakout.brick.js";
 import { BRICK_TYPES, LEVELS } from "./qp-breakout.levels.js";
+import Stars from "./qp-breakout.stars.js";
 
 class QPBreakout extends HTMLElement {
   static COLS = 8;
@@ -64,8 +65,15 @@ class QPBreakout extends HTMLElement {
     this._scale = 0.75;
 
     // canvas
-    this._gameCanvas = null;
+    this._bgCanvas = null;
+    this._logoCanvas = null;
     this._bricksCanvas = null;
+    this._gameCanvas = null;
+
+    // parallax
+    this._stars = null;
+    this._logoImage = null;
+    this._parallaxFactor = 2;
 
     // nodes
     this._wrapper = null;
@@ -110,7 +118,8 @@ class QPBreakout extends HTMLElement {
 
   /* START - Lifecycle */
 
-  connectedCallback() {
+  async connectedCallback() {
+    await this._loadImages();
     this._render();
   }
 
@@ -141,6 +150,9 @@ class QPBreakout extends HTMLElement {
 
   _reset() {
     this._removeEvents();
+    this._bgCanvas?.destroy();
+    this._logoCanvas?.destroy();
+    this._bricksCanvas?.destroy();
     this._gameCanvas?.destroy();
   }
   /* END - Lifecycle */
@@ -307,21 +319,90 @@ class QPBreakout extends HTMLElement {
 
   /* START - Canvas Controller */
   _initCanvas() {
-    this._gameCanvas = new Canvas({
-      wrapper: this._wrapper,
-      width: this._width,
-      scale: this._scale,
-    });
-    this._gameCanvas.create();
-    this._gameCanvas.observe();
+    const canvasOptions = { wrapper: this._wrapper, width: this._width, scale: this._scale };
 
-    this._bricksCanvas = new Canvas({
-      wrapper: this._wrapper,
-      width: this._width,
-      scale: this._scale,
-      cssClass: "qp-breakout-bricks-canvas",
+    this._bgCanvas = new Canvas({
+      ...canvasOptions,
+      cssClass: "qp-breakout-bg-canvas",
+      onResize: () => this._drawInitialBackground(),
     });
+    this._bgCanvas.create();
+    this._bgCanvas.observe();
+
+    this._logoCanvas = new Canvas({ ...canvasOptions, cssClass: "qp-breakout-logo-canvas" });
+    this._logoCanvas.create();
+
+    this._bricksCanvas = new Canvas({ ...canvasOptions, cssClass: "qp-breakout-bricks-canvas" });
     this._bricksCanvas.create();
+
+    this._gameCanvas = new Canvas(canvasOptions);
+    this._gameCanvas.create();
+
+    this._initStars();
+    this._drawInitialBackground();
+  }
+
+  _initStars() {
+    this._stars = new Stars({
+      count: 150,
+      canvasWidth: this._bgCanvas.width,
+      canvasHeight: this._bgCanvas.height,
+      ctx: this._bgCanvas.ctx,
+    });
+    this._stars.generate();
+  }
+
+  _drawInitialBackground() {
+    if (!this._stars || !this._logoImage || !this._logoCanvas) return;
+
+    this._stars.draw();
+    this._drawLogo(0, 0);
+  }
+
+  _drawLogo(offsetX = 0, offsetY = 0) {
+    if (!this._logoImage) return;
+
+    const canvasWidth = this._logoCanvas.width;
+    const canvasHeight = this._logoCanvas.height;
+    const logoSize = canvasWidth * 0.4;
+
+    this._logoCanvas.ctx.save();
+    this._logoCanvas.ctx.globalAlpha = 0.25;
+    this._logoCanvas.ctx.translate(
+      (canvasWidth - logoSize) / 2 + offsetX,
+      // shift logo 10% below center to avoid brick area
+      (canvasHeight - logoSize) / 2 + canvasHeight * 0.1 + offsetY,
+    );
+    this._logoCanvas.ctx.drawImage(this._logoImage, 0, 0, logoSize, logoSize);
+    this._logoCanvas.ctx.restore();
+  }
+
+  async _loadImages() {
+    this._logoImage = await this._loadImage("./images/qp-logo-horns-flash.svg");
+  }
+
+  _loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = new URL(src, import.meta.url).href;
+    });
+  }
+
+  _drawParallax() {
+    const offset = (this._paddle.x / this._gameCanvas.width - 0.5) * this._parallaxFactor;
+
+    // Stars
+    this._bgCanvas.clear();
+    this._bgCanvas.ctx.save();
+    this._bgCanvas.ctx.translate(offset * -4, offset * -3);
+    this._stars.draw();
+    this._bgCanvas.ctx.restore();
+
+    // Logo
+    this._logoCanvas.clear();
+    this._drawLogo(offset * -10, offset * -6);
   }
 
   /* END - Canvas Controller */
@@ -387,6 +468,7 @@ class QPBreakout extends HTMLElement {
 
   _gameLoop() {
     this._gameCanvas.clear();
+    this._drawParallax();
 
     this._paddle.move();
     this._ball.move();
@@ -394,15 +476,17 @@ class QPBreakout extends HTMLElement {
     if (!this._checkPaddleCollision()) return;
     // ball hits a brick
     if (this._checkBrickCollision()) {
-      this._bricksCanvas.clear();
-      this._drawBricks();
       this._remaining = this._bricks.flat().filter((b) => b.visible).length;
+      this._bricksCanvas.clear();
       this._setOutput();
 
       if (this._remaining <= 0) {
+        this._score += this._currentLevelDef.score;
         this._pauseGame();
         return;
       }
+
+      this._drawBricks();
     }
 
     this._ball.draw();

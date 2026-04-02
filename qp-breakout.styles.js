@@ -11,11 +11,12 @@ function getStyles() {
 
         .qp-scoreboard {
           display: grid;
-          grid-template-columns: 30% 30% 40%;
+          grid-template-columns: 25% 25% 50%;
           border-bottom: 1px solid #ddd;
           margin: 0 2rem;
           padding: 0.25rem 1rem;
           font-family: monospace;
+          font-size: 1rem;
         }
         .qp-scoreboard-output {
           text-align: center;
@@ -40,13 +41,19 @@ function getStyles() {
           border-radius: 4px;
         }
 
-        .qp-breakout-canvas {
-          z-index: 10;
-          border: 1px solid #ddd;
-          // background-color: rgba(241, 241, 241, 0.5);
+        .qp-breakout-bg-canvas {
+          z-index: 1;
+          background-color: #0a0a2a;
+        }
+        .qp-breakout-logo-canvas {
+          z-index: 2;
         }
         .qp-breakout-bricks-canvas {
-          z-index: 9;
+          z-index: 3;
+        }
+        .qp-breakout-canvas {
+          z-index: 4;
+          border: 1px solid #ddd;
         }
 
         /* Prevent Events */
