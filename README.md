@@ -1,16 +1,20 @@
 # `<qp-breakout>` — Breakout Game
 
-A classic breakout/brick-breaker game as a Web Component. A ball bounces off a
-paddle controlled by the player, destroying bricks on contact. The game ends
-when all lives are lost or all bricks are destroyed.
+A classic breakout/brick-breaker game as a Web Component, rendered on layered
+HTML5 Canvases. A ball bounces off a player-controlled paddle, destroying bricks
+on contact. The game features multiple levels with predefined and randomly
+generated layouts, multi-hit bricks (silver 2 hits, gold 3 hits), an extra-life
+bonus, and a parallax star/logo background. Game elements (ball, paddle, bricks)
+can be rendered as sprite images or drawn programmatically.
 
 ## Usage
 
 ```html
+<!-- Default: sprite images, German UI -->
 <qp-breakout></qp-breakout>
 
-<!-- Custom size and language -->
-<qp-breakout width="600" height="400" cols="10" rows="5" lang="en"></qp-breakout>
+<!-- Fixed width, English UI, programmatic drawing -->
+<qp-breakout width="600" lang="en" use-images="false"></qp-breakout>
 ```
 
 ```html
@@ -19,145 +23,110 @@ when all lives are lost or all bricks are destroyed.
 
 ## Attributes
 
-**`width`** (number, default: `480`)
+**`width`** (number, optional)
 
-- Canvas width in pixels.
+- Canvas width in pixels. When omitted the component scales to its container
+  using the `scale` factor.
 
-**`height`** (number, default: `320`)
+**`scale`** (number, default: `0.75`)
 
-- Canvas height in pixels.
-
-**`cols`** (number, default: `8`)
-
-- Number of brick columns.
-
-**`rows`** (number, default: `4`)
-
-- Number of brick rows.
-
-**`lives`** (number, default: `3`)
-
-- Number of lives the player starts with.
+- Scale factor (0–1) relative to the container width.
 
 **`lang`** (string, default: `"de"`)
 
 - Language code for translations (`"de"` or `"en"`).
 
-## Constants
+**`use-images`** (string, default: `true`)
 
-**`COLS`** — `8`
-
-- Default number of brick columns.
-
-**`ROWS`** — `4`
-
-- Default number of brick rows.
-
-**`LIVES`** — `3`
-
-- Default number of lives.
-
-**`INTERVAL_SPEED`** — `16`
-
-- Game loop interval in ms (~60fps).
-
-**`BALL_SPEED`** — `3`
-
-- Initial ball speed in pixels per tick.
-
-**`PADDLE_SPEED`** — `6`
-
-- Paddle movement speed in pixels per tick.
+- Render game elements as sprite images. Set to `"false"` to use programmatic
+  canvas drawing.
 
 ## Events
 
 All events are `CustomEvent` with `bubbles: true` and `composed: true` (cross Shadow DOM).
+Every event carries `detail: { lives, score, level }` unless noted otherwise.
 
 **`qp-breakout.game-started`**
 
 - Fired when a new game starts.
-- `detail: {}`
-
-**`qp-breakout.game-stopped`**
-
-- Fired when the game is stopped by the player.
-- `detail: {}`
+- `detail: { lives, score, level }`
 
 **`qp-breakout.game-paused`**
 
 - Fired when the game is paused.
-- `detail: {}`
+- `detail: { lives, score, level }`
 
 **`qp-breakout.game-resumed`**
 
 - Fired when the game is resumed after pause.
-- `detail: {}`
-
-**`qp-breakout.game-lost`**
-
-- Fired when all lives are lost.
-- `detail: { score, level }`
-  - `score` — final score
-  - `level` — current level at time of loss
-
-**`qp-breakout.game-won`**
-
-- Fired when all bricks are destroyed.
-- `detail: { score, level }`
-  - `score` — final score
-  - `level` — current level at time of win
+- `detail: { lives, score, level }`
 
 **`qp-breakout.game-level-up`**
 
-- Fired when the level increases.
-- `detail: { level, speed }`
-  - `level` — new level
-  - `speed` — new ball speed
+- Fired when the player advances to the next level.
+- `detail: { lives, score, level }`
+
+**`qp-breakout.level-complete`**
+
+- Fired when all bricks on the current level are destroyed.
+- `detail: { lives, score, level }`
+
+**`qp-breakout.game-extra-life`**
+
+- Fired when an extra life is awarded (every 1,000 points).
+- `detail: { lives, score, level }`
 
 **`qp-breakout.game-life-lost`**
 
-- Fired when the ball is missed by the paddle.
+- Fired when the ball falls below the paddle.
 - `detail: { lives }`
   - `lives` — remaining lives
 
+**`qp-breakout.game-over`**
+
+- Fired when all lives are lost or the player stops the game.
+- `detail: { lives, score, level }`
+
 ```js
-document.querySelector('qp-breakout').addEventListener('qp-breakout.game-lost', (e) => {
-  console.log(`Lost at level ${e.detail.level} with score ${e.detail.score}`);
+document.querySelector('qp-breakout').addEventListener('qp-breakout.game-over', (e) => {
+  console.log(`Game over at level ${e.detail.level} with score ${e.detail.score}`);
 });
 ```
 
 ## Game Flow
 
-1. The player starts the game via the **Start** button or the **Space** key.
-2. The ball moves each tick, bouncing off walls, paddle, and bricks.
-3. Destroying a brick increases the score.
-4. Missing the ball with the paddle costs one life.
-5. **Space** pauses/resumes, **Escape** stops, **Arrow keys** move the paddle.
-6. The game is lost when all lives are spent, and won when all bricks are
-   destroyed.
+1. Player starts the game via the **Start** button or the **Space** key.
+2. The ball launches from the center; the paddle is controlled via Arrow keys (left/right).
+3. Bricks are destroyed on collision, awarding points based on type. Multi-hit
+   bricks (silver, gold) require multiple hits and show reduced opacity as
+   visual feedback.
+4. Losing the ball costs a life; losing all lives triggers game-over.
+5. Clearing all bricks advances to the next level. Between levels the game
+   pauses until the player presses Space or the Pause button.
+6. An extra life is awarded every `EXTRA_LIVE` (1,000) points.
 
 ## UI Sections
 
-- **Scoreboard** — state indicator, brick layout (cols x rows), score, speed/level
-- **Canvas** — HTML5 Canvas for rendering ball, paddle, and bricks
+- **Scoreboard** — state indicator, remaining bricks, score, level, lives
+- **Canvas** — 4 stacked HTML5 Canvases (background stars, logo watermark, bricks, game)
 - **Button bar** — Start, Pause, Stop
   - **Start** — starts a new game
-  - **Pause** — pauses/resumes the running game
+  - **Pause** — pauses/resumes the running game; advances to next level between levels
   - **Stop** — stops the current game
 
 ## Lifecycle
 
 **`connectedCallback`**
 
-- Renders the component (canvas, scoreboard, buttons).
+- Loads images (logo + game sprites when `use-images` is enabled), then renders the component.
 
 **`disconnectedCallback`**
 
-- Clears timers and removes all event listeners.
+- Stops the game loop, removes event listeners, and destroys all canvases.
 
 **`attributeChangedCallback`**
 
-- Re-renders when `width`, `height`, `cols`, `rows`, `lives`, or `lang` change.
+- Re-renders when `width`, `scale`, `lang`, or `use-images` changes.
 
 ## Translations
 
@@ -169,6 +138,18 @@ All visible text is resolved via `_dict()` (Dictionary module) with a built-in
 ```text
 qp-breakout/
   qp-breakout.wc.js            — Web Component (main)
-  qp-breakout.styles.js         — Scoped styles (loaded via getStyles())
-  qp-breakout.dictionary.js     — i18n translations
+  qp-breakout.styles.js        — Scoped styles (loaded via getStyles())
+  qp-breakout.dictionary.js    — i18n translations
+  qp-breakout.canvas.js        — Canvas wrapper (DPR scaling, resize observer)
+  qp-breakout.paddle.js        — Paddle entity
+  qp-breakout.ball.js          — Ball entity
+  qp-bereakout.brick.js        — Brick entity
+  qp-breakout.levels.js        — Level definitions and brick type config
+  qp-breakout.stars.js         — Parallax star field generator
+  images/
+    qp-logo-horns-flash.svg    — Logo watermark
+    breakout/
+      ball.png                 — Ball sprite
+      paddle.png               — Paddle sprite
+      brick-*.png              — Brick sprites (10 color variants)
 ```

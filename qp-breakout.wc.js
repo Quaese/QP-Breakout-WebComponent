@@ -1,28 +1,90 @@
 /**
  * <qp-breakout> — Breakout Game Web Component
  *
- * A classic breakout/brick-breaker game rendered on an HTML5 Canvas. A ball
- * bounces off a paddle controlled by the player, destroying bricks on contact.
- * The game ends when all lives are lost or all bricks are destroyed.
+ * A classic breakout/brick-breaker game rendered on layered HTML5 Canvases.
+ * A ball bounces off a player-controlled paddle, destroying bricks on contact.
+ * The game features multiple levels with predefined and randomly generated
+ * layouts, multi-hit bricks (silver 2 hits, gold 3 hits), an extra-life
+ * bonus, and a parallax star/logo background. Game elements (ball, paddle,
+ * bricks) can be rendered as sprite images or drawn programmatically.
  *
  * @element qp-breakout
  *
- * @attr {string} width  - Canvas width in pixels. Default: "480"
- * @attr {string} height - Canvas height in pixels. Default: "320"
- * @attr {number} cols   - Number of brick columns. Default: 8
- * @attr {number} rows   - Number of brick rows. Default: 4
- * @attr {number} lives  - Number of lives. Default: 3
- * @attr {string} lang   - Language code for translations ("de" or "en"). Default: "de"
+ * @attr {number} width      - Canvas width in pixels. When omitted the component
+ *                              scales to its container using the scale factor.
+ * @attr {number} scale      - Scale factor (0–1) relative to the container width.
+ *                              Default: 0.75
+ * @attr {string} lang       - Language code for translations ("de" or "en").
+ *                              Default: "de"
+ * @attr {string} use-images - Render game elements as sprite images. Set to
+ *                              "false" to use programmatic canvas drawing.
+ *                              Default: true (images enabled)
  *
  * @example
+ *   <!-- Default: sprite images, German UI -->
  *   <qp-breakout></qp-breakout>
  *
- *   <!-- Custom size and language -->
- *   <qp-breakout width="600" height="400" cols="10" rows="5" lang="en"></qp-breakout>
+ *   <!-- Fixed width, English UI, programmatic drawing -->
+ *   <qp-breakout width="600" lang="en" use-images="false"></qp-breakout>
+ *
+ * @description
+ *   Lifecycle:
+ *     connectedCallback  — Loads images (logo + game sprites when use-images
+ *                          is enabled), then renders the component.
+ *     disconnectedCallback — Stops the game loop, removes event listeners,
+ *                            and destroys all canvases.
+ *     attributeChangedCallback — Re-renders when width, scale, lang, or
+ *                                use-images changes.
+ *
+ *   Game flow:
+ *     1. Player presses Start or Space to begin.
+ *     2. The ball launches from the center; the paddle is controlled via
+ *        Arrow keys (left/right).
+ *     3. Bricks are destroyed on collision, awarding points based on type.
+ *        Multi-hit bricks (silver, gold) require multiple hits and show
+ *        reduced opacity as visual feedback.
+ *     4. Losing the ball costs a life; losing all lives triggers game-over.
+ *     5. Clearing all bricks advances to the next level. Between levels the
+ *        game pauses until the player presses Space or the Pause button.
+ *     6. An extra life is awarded every EXTRA_LIVE (1000) points.
+ *
+ *   Canvas architecture (4 stacked layers):
+ *     - Background canvas — animated parallax star field
+ *     - Logo canvas       — semi-transparent logo watermark with parallax
+ *     - Bricks canvas     — static brick grid (redrawn only on collision)
+ *     - Game canvas       — ball and paddle (redrawn every frame)
+ *
+ *   Controls:
+ *     - Arrow Left / Right — move paddle
+ *     - Space              — start / pause / resume / next level
+ *     - Escape             — stop game
+ *
+ *   Events (CustomEvent, bubbles, composed):
+ *     All events carry detail: { lives, score, level } unless noted otherwise.
+ *     - "qp-breakout.game-started"   — fired when a new game starts.
+ *     - "qp-breakout.game-paused"    — fired when the game is paused.
+ *     - "qp-breakout.game-resumed"   — fired when the game is resumed.
+ *     - "qp-breakout.game-level-up"  — fired when the player advances a level.
+ *     - "qp-breakout.level-complete"  — fired when all bricks are destroyed.
+ *     - "qp-breakout.game-extra-life" — fired when an extra life is awarded.
+ *     - "qp-breakout.game-life-lost" — fired when the ball falls below the
+ *                                       paddle. detail: { lives }
+ *     - "qp-breakout.game-over"      — fired when all lives are lost or the
+ *                                       player stops the game.
+ *
+ *   Styles:
+ *     Loaded from the external module qp-breakout.styles.js via getStyles().
  *
  * @dependencies
  *   - ./qp-breakout.dictionary.js  — i18n translations
  *   - ./qp-breakout.styles.js      — scoped styles
+ *   - ./qp-breakout.canvas.js      — Canvas wrapper (DPR scaling, resize observer)
+ *   - ./qp-breakout.paddle.js      — Paddle entity
+ *   - ./qp-breakout.ball.js        — Ball entity
+ *   - ./qp-bereakout.brick.js      — Brick entity
+ *   - ./qp-breakout.levels.js      — Level definitions and brick type config
+ *   - ./qp-breakout.stars.js       — Parallax star field generator
+ *   - ./images/breakout/            — Sprite images (ball, paddle, bricks)
  */
 
 import Dictionary, { Languages } from "./qp-breakout.dictionary.js";
@@ -476,6 +538,11 @@ class QPBreakout extends HTMLElement {
     this._currentLevelDef = this._getLevelDef(this._level);
     this._setPaddle();
     this._initRound();
+    this._dispatchEvent("qp-breakout.game-started", {
+      lives: this._lives,
+      score: this._score,
+      level: this._level,
+    });
   }
 
   _initRound() {
@@ -499,6 +566,11 @@ class QPBreakout extends HTMLElement {
 
     this._state = "paused";
     this._setState();
+    this._dispatchEvent("qp-breakout.game-paused", {
+      lives: this._lives,
+      score: this._score,
+      level: this._level,
+    });
   }
 
   _resumeGame() {
@@ -506,6 +578,11 @@ class QPBreakout extends HTMLElement {
 
     this._state = "running";
     this._setState();
+    this._dispatchEvent("qp-breakout.game-resumed", {
+      lives: this._lives,
+      score: this._score,
+      level: this._level,
+    });
   }
 
   _nextLevel() {
@@ -513,6 +590,11 @@ class QPBreakout extends HTMLElement {
     // advance to next level definition (predefined or random)
     this._currentLevelDef = this._getLevelDef(this._level);
     this._initRound();
+    this._dispatchEvent("qp-breakout.game-level-up", {
+      lives: this._lives,
+      score: this._score,
+      level: this._level,
+    });
   }
 
   _gameOver() {
@@ -521,7 +603,11 @@ class QPBreakout extends HTMLElement {
     this._state = "stopped";
     this._setState();
     this._setOutput();
-    this._dispatchEvent("qp-breakout.game-over");
+    this._dispatchEvent("qp-breakout.game-over", {
+      lives: this._lives,
+      score: this._score,
+      level: this._level,
+    });
   }
 
   _gameLoop() {
@@ -540,6 +626,11 @@ class QPBreakout extends HTMLElement {
 
       if (this._remaining <= 0) {
         this._score += this._currentLevelDef.score;
+        this._dispatchEvent("qp-breakout.level-complete", {
+          lives: this._lives,
+          score: this._score,
+          level: this._level,
+        });
         this._pauseGame();
         return;
       }
@@ -730,7 +821,14 @@ class QPBreakout extends HTMLElement {
             const oldThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
             this._score += brick.score;
             const newThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
-            this._lives += newThreshold - oldThreshold;
+            const extraLives = newThreshold - oldThreshold;
+            this._lives += extraLives;
+            extraLives > 0 &&
+              this._dispatchEvent("qp-breakout.game-extra-life", {
+                lives: this._lives,
+                score: this._score,
+                level: this._level,
+              });
           }
 
           this._setCounter();
