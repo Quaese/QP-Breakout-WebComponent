@@ -10,6 +10,7 @@ export default class Brick {
         score: 10,
         hits: 1,
         ctx: null,
+        image: null,
       },
       options,
     );
@@ -25,6 +26,8 @@ export default class Brick {
     // brick ui
     this.fill = options.fill;
     this.score = options.score;
+    // style
+    this.image = options.image;
     // multi-hit
     this.hits = options.hits;
     this.maxHits = options.hits;
@@ -51,15 +54,29 @@ export default class Brick {
   draw() {
     if (!this.visible) return;
 
-    // Multi-hit visual feedback: reduce opacity as hits decrease
-    if (this.maxHits > 1) {
-      const ratio = this.hits / this.maxHits;
-      const alpha = 0.4 + 0.5 * ratio;
-      this.ctx.fillStyle = this.fill.replace(/[\d.]+\)$/, `${alpha})`);
-    } else {
-      this.ctx.fillStyle = this.fill;
-    }
+    if (this.image) {
+      // Multi-hit visual feedback: reduce opacity as hits decrease
+      if (this.maxHits > 1) {
+        const ratio = this.hits / this.maxHits;
+        this.ctx.globalAlpha = 0.4 + 0.5 * ratio;
+      }
 
-    this.ctx.fillRect(this.x, this.y, this.width, this.height);
+      this.ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+
+      if (this.maxHits > 1) {
+        this.ctx.globalAlpha = 1.0;
+      }
+    } else {
+      // Multi-hit visual feedback: reduce opacity as hits decrease
+      if (this.maxHits > 1) {
+        const ratio = this.hits / this.maxHits;
+        const alpha = 0.4 + 0.5 * ratio;
+        this.ctx.fillStyle = this.fill.replace(/[\d.]+\)$/, `${alpha})`);
+      } else {
+        this.ctx.fillStyle = this.fill;
+      }
+
+      this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
   }
 }

@@ -8,6 +8,7 @@ export default class Paddle {
         paddleHeight: 10,
         speed: 6,
         ctx: null,
+        image: null,
       },
       options,
     );
@@ -22,6 +23,8 @@ export default class Paddle {
     this.height = options.paddleHeight;
     this.x = options.canvasWidth / 2 - this.width / 2;
     this.y = options.canvasHeight - 40;
+    // style
+    this.image = options.image;
     // speed / kinetics
     this.speed = options.speed;
     this.dx = 0;
@@ -45,7 +48,11 @@ export default class Paddle {
   }
 
   draw() {
-    this.ctx.fillStyle = "#e0e0e0";
-    this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    if (this.image) {
+      this.ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+    } else {
+      this.ctx.fillStyle = "#e0e0e0";
+      this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
   }
 }

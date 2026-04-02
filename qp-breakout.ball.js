@@ -10,6 +10,7 @@ export default class Ball {
         ctx: null,
         fill: "#ffb347",
         // fill: "#ff9933",
+        image: null,
       },
       options,
     );
@@ -25,6 +26,7 @@ export default class Ball {
     this.speedY = options.speedY;
     // style
     this.fill = options.fill;
+    this.image = options.image;
 
     this.reset();
   }
@@ -57,10 +59,15 @@ export default class Ball {
   }
 
   draw() {
-    this.ctx.beginPath();
-    this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = this.fill;
-    this.ctx.fill();
-    this.ctx.closePath();
+    if (this.image) {
+      const size = this.radius * 2;
+      this.ctx.drawImage(this.image, this.x - this.radius, this.y - this.radius, size, size);
+    } else {
+      this.ctx.beginPath();
+      this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = this.fill;
+      this.ctx.fill();
+      this.ctx.closePath();
+    }
   }
 }

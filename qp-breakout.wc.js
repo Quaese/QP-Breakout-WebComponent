@@ -51,7 +51,7 @@ class QPBreakout extends HTMLElement {
   };
 
   static get observedAttributes() {
-    return ["width", "scale", "lang"];
+    return ["width", "scale", "lang", "use-images"];
   }
 
   constructor() {
@@ -63,12 +63,16 @@ class QPBreakout extends HTMLElement {
     this._lang = "de";
     this._width = null;
     this._scale = 0.75;
+    this._useImages = true;
 
     // canvas
     this._bgCanvas = null;
     this._logoCanvas = null;
     this._bricksCanvas = null;
     this._gameCanvas = null;
+
+    // images
+    this._images = null;
 
     // parallax
     this._stars = null;
@@ -141,6 +145,16 @@ class QPBreakout extends HTMLElement {
         this._lang = newValue;
         this._initializeDictionary();
         break;
+
+      case "use-images":
+        this._useImages = newValue !== "false";
+
+        // Reload images (or clear them) before re-rendering
+        if (this.isConnected && this._gameCanvas && this._bricksCanvas) {
+          this._loadImages().then(() => this._render());
+        }
+
+        return;
     }
 
     if (this.isConnected && this._gameCanvas && this._bricksCanvas) {
@@ -149,11 +163,18 @@ class QPBreakout extends HTMLElement {
   }
 
   _reset() {
+    this._stopLoop();
     this._removeEvents();
     this._bgCanvas?.destroy();
     this._logoCanvas?.destroy();
     this._bricksCanvas?.destroy();
     this._gameCanvas?.destroy();
+    this._bgCanvas = null;
+    this._logoCanvas = null;
+    this._bricksCanvas = null;
+    this._gameCanvas = null;
+    this._stars = null;
+    this._state = "stopped";
   }
   /* END - Lifecycle */
 
@@ -378,7 +399,44 @@ class QPBreakout extends HTMLElement {
   }
 
   async _loadImages() {
+    // Always load the logo (used regardless of use-images mode)
     this._logoImage = await this._loadImage("./images/qp-logo-horns-flash.svg");
+
+    // Only load game sprites when use-images is enabled
+    if (!this._useImages) {
+      this._images = null;
+      return;
+    }
+
+    const basePath = "./images/breakout";
+
+    // Collect unique brick image keys from BRICK_TYPES
+    const brickImageKeys = Object.values(BRICK_TYPES)
+      // filter out null values
+      .filter((brickType) => brickType !== null && brickType.image)
+      // extract image names without extension
+      .map((brickType) => brickType.image);
+
+    try {
+      // Load ball, paddle, and all brick images in parallel
+      const [ballImg, paddleImg, ...brickImgs] = await Promise.all([
+        this._loadImage(`${basePath}/ball.png`),
+        this._loadImage(`${basePath}/paddle.png`),
+        ...brickImageKeys.map((key) => this._loadImage(`${basePath}/${key}.png`)),
+      ]);
+
+      // Build the images store
+      const bricks = {};
+
+      brickImageKeys.forEach((key, i) => {
+        bricks[key] = brickImgs[i];
+      });
+
+      this._images = { ball: ballImg, paddle: paddleImg, bricks };
+    } catch (err) {
+      console.warn("QPBreakout: Failed to load sprite images, falling back to drawn mode.", err);
+      this._images = null;
+    }
   }
 
   _loadImage(src) {
@@ -510,6 +568,7 @@ class QPBreakout extends HTMLElement {
       canvasWidth: this._gameCanvas.width,
       canvasHeight: this._gameCanvas.height,
       ctx: this._gameCanvas.ctx,
+      image: this._images?.paddle || null,
     });
   }
 
@@ -521,6 +580,7 @@ class QPBreakout extends HTMLElement {
       canvasWidth: this._gameCanvas.width,
       canvasHeight: this._gameCanvas.height,
       ctx: this._gameCanvas.ctx,
+      image: this._images?.ball || null,
     });
   }
 
@@ -539,13 +599,15 @@ class QPBreakout extends HTMLElement {
       layout = this._generateFullGrid(QPBreakout.ROWS, this._cols);
     }
 
+    // reset bricks array
     this._bricks = [];
+
     const rows = layout.length;
     const cols = Math.max(...layout.map((r) => r.length));
 
-    const cw = this._bricksCanvas.width;
-    const margin = Math.round(cw / 100);
-    const brickWidth = (cw - margin * (cols + 1)) / cols;
+    const canvasWidth = this._bricksCanvas.width;
+    const margin = Math.round(canvasWidth / 100);
+    const brickWidth = (canvasWidth - margin * (cols + 1)) / cols;
     const brickHeight = Math.round(brickWidth / 3);
 
     for (let i = 0; i < rows; i++) {
@@ -580,6 +642,7 @@ class QPBreakout extends HTMLElement {
               score: brickType.score,
               hits: brickType.hits,
               ctx: this._bricksCanvas.ctx,
+              image: this._images?.bricks[brickType.image] || null,
             }),
           );
         }

@@ -11,14 +11,14 @@
 
 export const BRICK_TYPES = {
   0: null,
-  1: { color: "rgba(255, 193, 7, 0.9)", score: 10, hits: 1 }, // yellow
-  2: { color: "rgba(255, 153, 0, 0.9)", score: 15, hits: 1 }, // orange
-  3: { color: "rgba(220, 53, 69, 0.9)", score: 20, hits: 1 }, // red
-  4: { color: "rgba(25, 135, 84, 0.9)", score: 25, hits: 1 }, // green
-  5: { color: "rgba(13, 110, 253, 0.9)", score: 30, hits: 1 }, // blue
-  6: { color: "rgba(102, 16, 242, 0.9)", score: 50, hits: 1 }, // purple
-  7: { color: "rgba(108, 117, 125, 0.9)", score: 40, hits: 2 }, // silver (2 hits)
-  8: { color: "rgba(255, 215, 0, 0.9)", score: 75, hits: 3 }, // gold (3 hits)
+  1: { color: "rgba(255, 193, 7, 0.9)", score: 10, hits: 1, image: "brick-yellow" }, // yellow
+  2: { color: "rgba(255, 153, 0, 0.9)", score: 15, hits: 1, image: "brick-orange" }, // orange
+  3: { color: "rgba(220, 53, 69, 0.9)", score: 20, hits: 1, image: "brick-red" }, // red
+  4: { color: "rgba(25, 135, 84, 0.9)", score: 25, hits: 1, image: "brick-green" }, // green
+  5: { color: "rgba(13, 110, 253, 0.9)", score: 30, hits: 1, image: "brick-blue" }, // blue
+  6: { color: "rgba(102, 16, 242, 0.9)", score: 50, hits: 1, image: "brick-purple" }, // purple
+  7: { color: "rgba(108, 117, 125, 0.9)", score: 40, hits: 2, image: "brick-slate" }, // silver (2 hits)
+  8: { color: "rgba(255, 215, 0, 0.9)", score: 75, hits: 3, image: "brick-lime" }, // gold (3 hits)
 };
 
 export const LEVELS = [
