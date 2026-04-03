@@ -12,6 +12,7 @@ const Dictionary = (args) => ({
   scoreboardLevel: { de: `Level: ${args[0]}`, en: `Level: ${args[0]}` },
   scoreboardLives: { de: `Leben: ${args[0]}`, en: `Lives: ${args[0]}` },
   scoreboardRemainingBricks: { de: `Bricks: ${args[0]}`, en: `Bricks: ${args[0]}` },
+  scoreboardState_waiting: { de: `Bereit`, en: `Ready` },
   scoreboardState_paused: { de: `Pausiert`, en: `Paused` },
   scoreboardState_running: { de: `Running`, en: `Running` },
   scoreboardState_stopped: { de: `Stop`, en: `Stopped` },

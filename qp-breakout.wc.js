@@ -37,13 +37,16 @@
  *                                use-images changes.
  *
  *   Game flow:
- *     1. Player presses Start or Space to begin.
- *     2. The ball launches from the center; the paddle is controlled via
- *        Arrow keys (left/right).
+ *     1. Player presses Start or Space to begin. The ball rests on the
+ *        centered paddle ("waiting" state).
+ *     2. The player can move the paddle with Arrow keys — the ball follows.
+ *        Pressing Space launches the ball upward ("running" state).
  *     3. Bricks are destroyed on collision, awarding points based on type.
  *        Multi-hit bricks (silver, gold) require multiple hits and show
  *        reduced opacity as visual feedback.
- *     4. Losing the ball costs a life; losing all lives triggers game-over.
+ *     4. Losing the ball costs a life. The paddle re-centers and the ball
+ *        is placed on top again ("waiting"), ready for the next launch.
+ *        Losing all lives triggers game-over.
  *     5. Clearing all bricks advances to the next level. Between levels the
  *        game pauses until the player presses Space or the Pause button.
  *     6. An extra life is awarded every EXTRA_LIVE (1000) points.
@@ -56,7 +59,7 @@
  *
  *   Controls:
  *     - Arrow Left / Right — move paddle
- *     - Space              — start / pause / resume / next level
+ *     - Space              — launch ball / pause / resume / next level
  *     - Escape             — stop game
  *
  *   Events (CustomEvent, bubbles, composed):
@@ -345,24 +348,19 @@ class QPBreakout extends HTMLElement {
 
     switch (e.key) {
       case "ArrowRight":
-        if (this._state === "running") this._paddle.setSpeed("right");
+        if (this._state === "running" || this._state === "waiting") this._paddle.setSpeed("right");
         break;
       case "ArrowLeft":
-        if (this._state === "running") this._paddle.setSpeed("left");
+        if (this._state === "running" || this._state === "waiting") this._paddle.setSpeed("left");
         break;
       case " ":
-        // if (this._state === "stopped") {
-        //   this._startGame();
-        // } else if (this._state === "paused") {
-        //   if (this._remaining <= 0) {
-        //     this._nextLevel();
-        //   } else {
-        //     this._resumeGame();
-        //   }
-        // } else {
-        //   this._pauseGame();
-        // }
-        this._handlePauseClick();
+        if (this._state === "waiting") {
+          this._ball.launch();
+          this._state = "running";
+          this._setState();
+        } else {
+          this._handlePauseClick();
+        }
         break;
       case "Escape":
         // if (this._state === "running" || this._state === "paused") {
@@ -390,7 +388,7 @@ class QPBreakout extends HTMLElement {
   _handleKeyUp(e) {
     Object.keys(QPBreakout.PREVENT_KEYCODES).map(Number).includes(e.keyCode) && e.preventDefault();
 
-    if (this._state !== "running") return;
+    if (this._state !== "running" && this._state !== "waiting") return;
 
     switch (e.key) {
       case "ArrowRight":
@@ -554,12 +552,15 @@ class QPBreakout extends HTMLElement {
     this._setBricks();
     this._remaining = this._bricks.flat().filter((b) => b.visible).length;
     this._drawBricks();
-    this._gameLoop();
 
-    this._state = "running";
+    // Place ball on paddle and wait for launch
+    this._paddle.centerOn(this._gameCanvas.width);
+    this._ball.attachTo(this._paddle);
+    this._state = "waiting";
     this._setState();
     this._setCounter();
     this._setOutput();
+    this._gameLoop();
   }
 
   _pauseGame() {
@@ -616,6 +617,16 @@ class QPBreakout extends HTMLElement {
     this._drawParallax();
 
     this._paddle.move();
+
+    // While waiting for launch, ball follows the paddle
+    if (this._ball.attached) {
+      this._ball.attachTo(this._paddle);
+      this._ball.draw();
+      this._paddle.draw();
+      this._hLoopTimer = requestAnimationFrame(this._gameLoop);
+      return;
+    }
+
     this._ball.move();
 
     if (!this._checkPaddleCollision()) return;
@@ -781,7 +792,10 @@ class QPBreakout extends HTMLElement {
           return false;
         }
 
-        this._ball.reset();
+        this._paddle.centerOn(this._gameCanvas.width);
+        this._ball.attachTo(this._paddle);
+        this._state = "waiting";
+        this._setState();
       }
     }
 

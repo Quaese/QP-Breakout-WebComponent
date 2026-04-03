@@ -50,6 +50,14 @@ export default class Canvas {
       this.width = available * this._scale;
     }
 
+    // Limit width so the canvas height fits within 90% of the viewport height
+    const maxHeight = window.innerHeight * 0.9;
+    const desiredHeight = this.width * this._aspectRatio;
+
+    if (desiredHeight > maxHeight) {
+      this.width = maxHeight / this._aspectRatio;
+    }
+
     this.height = this.width * this._aspectRatio;
 
     this.el.style.width = this.width + "px";

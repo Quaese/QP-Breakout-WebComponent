@@ -40,6 +40,11 @@ export default class Paddle {
     }
   }
 
+  centerOn(canvasWidth) {
+    this.x = canvasWidth / 2 - this.width / 2;
+    this.dx = 0;
+  }
+
   setSpeed(direction = "right", speed) {
     const sign = direction === "right" ? 1 : -1;
 

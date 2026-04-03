@@ -28,12 +28,32 @@ export default class Ball {
     this.fill = options.fill;
     this.image = options.image;
 
+    this.attached = false;
     this.reset();
   }
 
   reset() {
     this.x = this.canvasWidth / 2;
     this.y = this.canvasHeight / 2;
+    this.dx = this.speedX;
+    this.dy = this.speedY;
+    this.attached = false;
+  }
+
+  // Place the ball on top of the paddle and stop movement
+  attachTo(paddle) {
+    this.attached = true;
+    this.x = paddle.x + paddle.width / 2;
+    this.y = paddle.y - this.radius;
+    this.dx = 0;
+    this.dy = 0;
+  }
+
+  // Launch the ball upward from the paddle
+  launch() {
+    if (!this.attached) return;
+
+    this.attached = false;
     this.dx = this.speedX;
     this.dy = this.speedY;
   }

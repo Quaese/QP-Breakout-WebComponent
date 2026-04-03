@@ -96,11 +96,15 @@ document.querySelector('qp-breakout').addEventListener('qp-breakout.game-over', 
 ## Game Flow
 
 1. Player starts the game via the **Start** button or the **Space** key.
-2. The ball launches from the center; the paddle is controlled via Arrow keys (left/right).
+   The ball rests on the centered paddle ("waiting" state).
+2. The player can move the paddle with **Arrow keys** — the ball follows.
+   Pressing **Space** launches the ball upward ("running" state).
 3. Bricks are destroyed on collision, awarding points based on type. Multi-hit
    bricks (silver, gold) require multiple hits and show reduced opacity as
    visual feedback.
-4. Losing the ball costs a life; losing all lives triggers game-over.
+4. Losing the ball costs a life. The paddle re-centers and the ball is placed
+   on top again ("waiting"), ready for the next launch. Losing all lives
+   triggers game-over.
 5. Clearing all bricks advances to the next level. Between levels the game
    pauses until the player presses Space or the Pause button.
 6. An extra life is awarded every `EXTRA_LIVE` (1,000) points.
