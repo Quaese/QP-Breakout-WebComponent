@@ -79,6 +79,7 @@ export default class Canvas {
   observe() {
     this._observer = new ResizeObserver(() => this.resize());
     this._observer.observe(this._wrapper);
+    this._observer.observe(document.documentElement);
   }
 
   disconnect() {
