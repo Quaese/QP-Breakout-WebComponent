@@ -102,6 +102,7 @@ class QPBreakout extends HTMLElement {
   static LIVES = 3;
   static EXTRA_LIVE = 1000;
   static PADDLE_SPEED = 6;
+  static MARGIN = 4;
   static PREVENT_KEYCODES = {
     13: "Enter",
     27: "Escape",
@@ -697,7 +698,8 @@ class QPBreakout extends HTMLElement {
     const cols = Math.max(...layout.map((r) => r.length));
 
     const canvasWidth = this._bricksCanvas.width;
-    const margin = Math.round(canvasWidth / 100);
+    const margin = canvasWidth < 480 ? QPBreakout.MARGIN - 1 : QPBreakout.MARGIN;
+    // const margin = canvasWidth < 480 ? Math.round(canvasWidth / 100) : QPBreakout.MARGIN;
     const brickWidth = (canvasWidth - margin * (cols + 1)) / cols;
     const brickHeight = Math.round(brickWidth / 3);
 
