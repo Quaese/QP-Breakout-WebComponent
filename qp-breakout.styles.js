@@ -35,6 +35,24 @@ function getStyles() {
           width: 100%;
           padding: 2rem 0;
         }
+        .qp-breakout-screen {
+          position: absolute;
+          z-index: 5;
+          // top: 0;
+          // left: 50%;
+          // transform: translateX(-50%);
+          font-family: monospace;
+          font-size: 1.5rem;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          color: #fff;
+          text-align: center;
+          opacity: 0;
+        }
+        .qp-breakout-screen-visible {
+          opacity: 1;
+        }
           
         canvas {
           position: absolute;

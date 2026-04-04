@@ -153,6 +153,7 @@ class QPBreakout extends HTMLElement {
     this._btnStop = null;
     this._btnStart = null;
     this._btnPause = null;
+    this._screens = [];
 
     // game state
     this._hLoopTimer = null;
@@ -171,8 +172,10 @@ class QPBreakout extends HTMLElement {
     this._lives = QPBreakout.LIVES;
     this._speed = 0;
     this._level = 1;
-    this._state = "stopped";
     this._remaining = 0;
+
+    // set initial state
+    this._setState("init");
 
     // bound methods
     this._handleKeyDown = this._handleKeyDown.bind(this);
@@ -240,7 +243,7 @@ class QPBreakout extends HTMLElement {
     this._bricksCanvas = null;
     this._gameCanvas = null;
     this._stars = null;
-    this._state = "stopped";
+    this._setState("init");
   }
   /* END - Lifecycle */
 
@@ -278,7 +281,32 @@ class QPBreakout extends HTMLElement {
       },
       scoreboardScore: { de: `Punkte: ${args[0]}`, en: `Score: ${args[0]}` },
       scoreboardSpeed: { de: `Speed: ${args[0]}`, en: `Speed: ${args[0]}` },
+      scoreboardLevel: { de: `Level: ${args[0]}`, en: `Level: ${args[0]}` },
       scoreboardLives: { de: `Leben: ${args[0]}`, en: `Lives: ${args[0]}` },
+      scoreboardRemainingBricks: { de: `Bricks: ${args[0]}`, en: `Bricks: ${args[0]}` },
+      screenInitTitle: { de: `QP Breakout`, en: `QP Breakout` },
+      screenInitText: { de: `Start drücken oder Leertaste`, en: `Press start or space to play` },
+      screenWaitingTitle: { de: `Breakout`, en: `Breakout` },
+      screenWaitingText: {
+        de: `Pfeiltasten links und rechts zum Bewegen`,
+        en: `Use Arrow keys left and right to move`,
+      },
+      screenWaitingAction: { de: `Leertaste zum Starten`, en: `Press space to start` },
+      screenPausedTitle: { de: `Pausiert`, en: `Paused` },
+      screenPausedText: { de: `Leertaste zum Fortsetzen`, en: `Press space to resume` },
+      screenLevel: { de: `Level: ${args[0]}`, en: `Level: ${args[0]}` },
+      screenCompleteTitle: { de: `Level geschafft`, en: `Level Complete` },
+      screenCompleteScore: { de: `Punkte: ${args[0]}`, en: `Score: ${args[0]}` },
+      screenCompleteText: { de: `Leertaste zum Weiterspielen`, en: `Press space to continue` },
+      screenGameoverTitle: { de: `Game Over`, en: `Game Over` },
+      screenGameoverText: {
+        de: `Start oder Leertaste drücken zum Neustarten`,
+        en: `Press start or space to restart`,
+      },
+      screenRemainingLives: { de: `Leben: ${args[0]}`, en: `Lives: ${args[0]}` },
+      scoreboardState_init: { de: `QP Breakout`, en: `QP Breakout` },
+      scoreboardState_waiting: { de: `Bereit`, en: `Ready` },
+      scoreboardState_complete: { de: `Level geschafft`, en: `Level Complete` },
       scoreboardState_paused: { de: `Pausiert`, en: `Paused` },
       scoreboardState_running: { de: `Running`, en: `Running` },
       scoreboardState_stopped: { de: `Stop`, en: `Stopped` },
@@ -330,14 +358,12 @@ class QPBreakout extends HTMLElement {
   }
 
   _handlePauseClick() {
-    if (this._state === "stopped") {
+    if (this._state === "init" || this._state === "stopped") {
       this._startGame();
+    } else if (this._state === "complete") {
+      this._nextLevel();
     } else if (this._state === "paused") {
-      if (this._remaining <= 0) {
-        this._nextLevel();
-      } else {
-        this._resumeGame();
-      }
+      this._resumeGame();
     } else {
       this._pauseGame();
     }
@@ -356,8 +382,7 @@ class QPBreakout extends HTMLElement {
       case " ":
         if (this._state === "waiting") {
           this._ball.launch();
-          this._state = "running";
-          this._setState();
+          this._setState("running");
         } else {
           this._handlePauseClick();
         }
@@ -406,7 +431,10 @@ class QPBreakout extends HTMLElement {
     this._bgCanvas = new Canvas({
       ...canvasOptions,
       cssClass: "qp-breakout-bg-canvas",
-      onResize: () => this._drawInitialBackground(),
+      onResize: () => {
+        this._resizeScreens();
+        this._drawInitialBackground();
+      },
     });
     this._bgCanvas.create();
     this._bgCanvas.observe();
@@ -422,6 +450,120 @@ class QPBreakout extends HTMLElement {
 
     this._initStars();
     this._drawInitialBackground();
+  }
+
+  _initScreens() {
+    this._initScreen = document.createElement("div");
+    this._initScreen.classList.add("qp-breakout-screen");
+    this._initScreen.innerHTML = `
+      <div class="qp-breakout-screen-content">
+        <h1>${this._dict("screenInitTitle", this._lang)}</h1>
+        <p>${this._dict("screenInitText", this._lang)}</p>
+      </div>
+    `;
+
+    this._startScreen = document.createElement("div");
+    this._startScreen.classList.add("qp-breakout-screen");
+    this._startScreen.innerHTML = `
+      <div class="qp-breakout-screen-content">
+        <h1>${this._dict("screenWaitingTitle", this._lang)}</h1>
+        <p>${this._dict("screenWaitingText", this._lang)}</p>
+        <p class="qp-breakout-screen-lives">${this._dict("screenRemainingLives", this._lang, this._lives)}</p>
+        <p>${this._dict("screenWaitingAction", this._lang)}</p>
+      </div>
+    `;
+
+    this._pauseScreen = document.createElement("div");
+    this._pauseScreen.classList.add("qp-breakout-screen");
+    this._pauseScreen.innerHTML = `
+      <div class="qp-breakout-screen-content">
+        <h1>${this._dict("screenPausedTitle", this._lang)}</h1>
+        <p>${this._dict("screenPausedText", this._lang)}</p>
+      </div>
+    `;
+
+    this._gameoverScreen = document.createElement("div");
+    this._gameoverScreen.classList.add("qp-breakout-screen");
+    this._gameoverScreen.innerHTML = `
+      <div class="qp-breakout-screen-content">
+        <h1>${this._dict("screenGameoverTitle", this._lang)}</h1>
+        <p class="qp-breakout-screen-score">${this._dict("screenCompleteScore", this._lang, this._score)}</p>
+        <p class="qp-breakout-screen-level">${this._dict("screenLevel", this._lang, this._level)}</p>
+        <p>${this._dict("screenGameoverText", this._lang)}</p>
+      </div>
+    `;
+
+    this._completeScreen = document.createElement("div");
+    this._completeScreen.classList.add("qp-breakout-screen");
+    this._completeScreen.innerHTML = `
+      <div class="qp-breakout-screen-content">
+        <h1>${this._dict("screenCompleteTitle", this._lang)}</h1>
+        <p class="qp-breakout-screen-level">${this._dict("screenLevel", this._lang, this._level)}</p>
+        <p class="qp-breakout-screen-lives">${this._dict("screenRemainingLives", this._lang, this._lives)}</p>
+        <p class="qp-breakout-screen-score">${this._dict("screenCompleteScore", this._lang, this._score)}</p>
+        <p>${this._dict("screenCompleteText", this._lang)}</p>
+      </div>
+    `;
+
+    this._screens = [
+      this._initScreen,
+      this._startScreen,
+      this._pauseScreen,
+      this._completeScreen,
+      this._gameoverScreen,
+    ];
+
+    this._wrapper.appendChild(this._initScreen);
+    this._wrapper.appendChild(this._startScreen);
+    this._wrapper.appendChild(this._pauseScreen);
+    this._wrapper.appendChild(this._completeScreen);
+    this._wrapper.appendChild(this._gameoverScreen);
+  }
+
+  _setScreen(screen) {
+    this._screens.forEach((screen) => {
+      screen.classList.remove("qp-breakout-screen-visible");
+    });
+
+    if (screen === this._completeScreen || screen === this._gameoverScreen) {
+      screen.querySelector(".qp-breakout-screen-score").textContent = this._dict(
+        "screenCompleteScore",
+        this._lang,
+        this._score,
+      );
+    }
+
+    if (screen === this._completeScreen || screen === this._gameoverScreen) {
+      screen.querySelector(".qp-breakout-screen-level").textContent = this._dict(
+        "screenLevel",
+        this._lang,
+        this._level,
+      );
+    }
+
+    if (screen === this._startScreen || screen === this._completeScreen) {
+      screen.querySelector(".qp-breakout-screen-lives").textContent = this._dict(
+        "screenRemainingLives",
+        this._lang,
+        this._lives,
+      );
+    }
+
+    screen && screen.classList.add("qp-breakout-screen-visible");
+  }
+
+  _resizeScreens() {
+    if (!this._bgCanvas) return;
+
+    const width = this._bgCanvas.width + "px";
+    const height = this._bgCanvas.height + "px";
+
+    this._screens.forEach((screen) => {
+      if (!screen) return;
+
+      screen.style.width = width;
+      screen.style.height = height;
+    });
   }
 
   _initStars() {
@@ -544,7 +686,7 @@ class QPBreakout extends HTMLElement {
     });
   }
 
-  _initRound() {
+  _initRound(state = "waiting") {
     this._gameCanvas.clear();
     this._bricksCanvas.clear();
 
@@ -556,18 +698,16 @@ class QPBreakout extends HTMLElement {
     // Place ball on paddle and wait for launch
     this._paddle.centerOn(this._gameCanvas.width);
     this._ball.attachTo(this._paddle);
-    this._state = "waiting";
-    this._setState();
+    this._setState(state);
     this._setCounter();
     this._setOutput();
     this._gameLoop();
   }
 
-  _pauseGame() {
+  _pauseGame(state = "paused") {
     this._stopLoop();
 
-    this._state = "paused";
-    this._setState();
+    this._setState(state);
     this._dispatchEvent("qp-breakout.game-paused", {
       lives: this._lives,
       score: this._score,
@@ -578,8 +718,7 @@ class QPBreakout extends HTMLElement {
   _resumeGame() {
     this._gameLoop();
 
-    this._state = "running";
-    this._setState();
+    this._setState("running");
     this._dispatchEvent("qp-breakout.game-resumed", {
       lives: this._lives,
       score: this._score,
@@ -602,8 +741,7 @@ class QPBreakout extends HTMLElement {
   _gameOver() {
     this._stopLoop();
     this._gameCanvas.clear();
-    this._state = "stopped";
-    this._setState();
+    this._setState("stopped");
     this._setOutput();
     this._dispatchEvent("qp-breakout.game-over", {
       lives: this._lives,
@@ -643,7 +781,7 @@ class QPBreakout extends HTMLElement {
           score: this._score,
           level: this._level,
         });
-        this._pauseGame();
+        this._pauseGame("complete");
         return;
       }
 
@@ -794,8 +932,7 @@ class QPBreakout extends HTMLElement {
 
         this._paddle.centerOn(this._gameCanvas.width);
         this._ball.attachTo(this._paddle);
-        this._state = "waiting";
-        this._setState();
+        this._setState("waiting");
       }
     }
 
@@ -938,15 +1075,27 @@ class QPBreakout extends HTMLElement {
   /* END - Game Logic (Helpers) */
 
   /* START - UI / Rendering */
-  _setState() {
-    if (this._stateNode) {
-      const state =
-        this._state === "stopped" && this._lives <= 0
-          ? this._dict("funBreakoutGameOver", this._lang)
-          : this._dict(`scoreboardState_${this._state}`, this._lang);
+  _setState(state) {
+    if (state) this._state = state;
 
-      this._stateNode.textContent = state;
-    }
+    if (!this._stateNode) return;
+
+    const label =
+      this._state === "stopped" && this._lives <= 0
+        ? this._dict("funBreakoutGameOver", this._lang)
+        : this._dict(`scoreboardState_${this._state}`, this._lang);
+
+    this._stateNode.textContent = label;
+
+    const screenMap = {
+      init: this._initScreen,
+      waiting: this._startScreen,
+      paused: this._pauseScreen,
+      complete: this._completeScreen,
+      stopped: this._gameoverScreen,
+    };
+
+    this._setScreen(screenMap[this._state] || null);
   }
   _setCounter() {
     if (this._counter)
@@ -988,7 +1137,10 @@ class QPBreakout extends HTMLElement {
     if (this.isConnected) {
       this._setNodes();
       this._initCanvas();
+      this._initScreens();
+      this._resizeScreens();
       this._attachEvents();
+      this._setState();
     }
   }
 
