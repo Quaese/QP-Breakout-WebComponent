@@ -37,7 +37,7 @@ function getStyles() {
           width: 100%;
           padding: 2rem 0;
         }
-      
+          
         .qp-breakout-screen {
           position: absolute;
           z-index: 5;
@@ -52,6 +52,21 @@ function getStyles() {
           color: #fff;
           text-align: center;
           opacity: 0;
+        }
+      
+        .qp-breakout-screen-init {
+          position: relative;
+        }
+        .qp-breakout-screen-init::before {
+          content: "";
+          position: absolute;
+          z-index: -1;
+          inset: 0;
+          background-image: var(--bg-image);
+          background-repeat: no-repeat;
+          background-position: 50%;
+          background-size: 50%;
+          opacity: 0.75;
         }
       
         .qp-breakout-screen-visible {

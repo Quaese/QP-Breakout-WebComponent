@@ -36,44 +36,62 @@
  *     attributeChangedCallback — Re-renders when width, scale, lang, or
  *                                use-images changes.
  *
+ *   Game states:
+ *     - "init"     — initial state after component load, shows title screen
+ *     - "waiting"  — ball rests on paddle, player can position before launch
+ *     - "running"  — ball is in play, game loop active
+ *     - "paused"   — game loop stopped, resumable via Space
+ *     - "complete" — all bricks destroyed, shows level-complete screen
+ *     - "stopped"  — game over, shows game-over screen with final score
+ *
  *   Game flow:
- *     1. Player presses Start or Space to begin. The ball rests on the
- *        centered paddle ("waiting" state).
- *     2. The player can move the paddle with Arrow keys — the ball follows.
- *        Pressing Space launches the ball upward ("running" state).
+ *     1. Component loads in "init" state showing the title screen.
+ *        Player presses Start or Space to begin.
+ *     2. The ball rests on the centered paddle ("waiting"). The player
+ *        can move the paddle with Arrow keys — the ball follows.
+ *        Pressing Space launches the ball upward ("running").
  *     3. Bricks are destroyed on collision, awarding points based on type.
  *        Multi-hit bricks (silver, gold) require multiple hits and show
  *        reduced opacity as visual feedback.
  *     4. Losing the ball costs a life. The paddle re-centers and the ball
  *        is placed on top again ("waiting"), ready for the next launch.
- *        Losing all lives triggers game-over.
- *     5. Clearing all bricks advances to the next level. Between levels the
- *        game pauses until the player presses Space or the Pause button.
+ *        Losing all lives triggers game-over ("stopped").
+ *     5. Clearing all bricks shows the level-complete screen ("complete").
+ *        Pressing Space advances to the next level.
  *     6. An extra life is awarded every EXTRA_LIVE (1000) points.
+ *
+ *   Screens (overlay layers, toggled by _setState):
+ *     - Init screen     — title "QP Breakout" with logo background
+ *     - Start screen    — instructions before ball launch
+ *     - Pause screen    — shown during pause
+ *     - Complete screen — level complete with score and lives
+ *     - Game-over screen — final score and level
  *
  *   Canvas architecture (4 stacked layers):
  *     - Background canvas — animated parallax star field
  *     - Logo canvas       — semi-transparent logo watermark with parallax
  *     - Bricks canvas     — static brick grid (redrawn only on collision)
  *     - Game canvas       — ball and paddle (redrawn every frame)
+ *     All canvases share a single static ResizeObserver (Canvas class) and
+ *     limit their height to 90% of the viewport height.
  *
  *   Controls:
- *     - Arrow Left / Right — move paddle
+ *     - Arrow Left / Right — move paddle (also in "waiting" state)
  *     - Space              — launch ball / pause / resume / next level
  *     - Escape             — stop game
  *
  *   Events (CustomEvent, bubbles, composed):
  *     All events carry detail: { lives, score, level } unless noted otherwise.
- *     - "qp-breakout.game-started"   — fired when a new game starts.
- *     - "qp-breakout.game-paused"    — fired when the game is paused.
- *     - "qp-breakout.game-resumed"   — fired when the game is resumed.
- *     - "qp-breakout.game-level-up"  — fired when the player advances a level.
+ *     - "qp-breakout.game-started"    — fired when a new game starts.
+ *     - "qp-breakout.game-paused"     — fired when the game is paused.
+ *     - "qp-breakout.game-resumed"    — fired when the game is resumed.
+ *     - "qp-breakout.game-level-up"   — fired when the player advances a level.
  *     - "qp-breakout.level-complete"  — fired when all bricks are destroyed.
  *     - "qp-breakout.game-extra-life" — fired when an extra life is awarded.
- *     - "qp-breakout.game-life-lost" — fired when the ball falls below the
- *                                       paddle. detail: { lives }
- *     - "qp-breakout.game-over"      — fired when all lives are lost or the
- *                                       player stops the game.
+ *     - "qp-breakout.game-life-lost"  — fired when the ball falls below the
+ *                                        paddle. detail: { lives }
+ *     - "qp-breakout.game-over"       — fired when all lives are lost or the
+ *                                        player stops the game.
  *
  *   Styles:
  *     Loaded from the external module qp-breakout.styles.js via getStyles().
@@ -454,7 +472,8 @@ class QPBreakout extends HTMLElement {
 
   _initScreens() {
     this._initScreen = document.createElement("div");
-    this._initScreen.classList.add("qp-breakout-screen");
+    this._initScreen.classList.add("qp-breakout-screen", "qp-breakout-screen-init");
+    this._initScreen.style.setProperty("--bg-image", `url("${this._logoImage.src}")`);
     this._initScreen.innerHTML = `
       <div class="qp-breakout-screen-content">
         <h1>${this._dict("screenInitTitle", this._lang)}</h1>

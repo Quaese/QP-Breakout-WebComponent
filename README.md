@@ -7,6 +7,19 @@ generated layouts, multi-hit bricks (silver 2 hits, gold 3 hits), an extra-life
 bonus, and a parallax star/logo background. Game elements (ball, paddle, bricks)
 can be rendered as sprite images or drawn programmatically.
 
+## Table of Contents
+
+- [Usage](#usage)
+- [Attributes](#attributes)
+- [Game States](#game-states)
+- [Screens](#screens)
+- [Events](#events)
+- [Game Flow](#game-flow)
+- [UI Sections](#ui-sections)
+- [Lifecycle](#lifecycle)
+- [Translations](#translations)
+- [File Structure](#file-structure)
+
 ## Usage
 
 ```html
@@ -26,7 +39,7 @@ can be rendered as sprite images or drawn programmatically.
 **`width`** (number, optional)
 
 - Canvas width in pixels. When omitted the component scales to its container
-  using the `scale` factor.
+  using the `scale` factor. Canvas height is limited to 90% of the viewport height.
 
 **`scale`** (number, default: `0.75`)
 
@@ -40,6 +53,27 @@ can be rendered as sprite images or drawn programmatically.
 
 - Render game elements as sprite images. Set to `"false"` to use programmatic
   canvas drawing.
+
+## Game States
+
+| State | Description |
+| --- | --- |
+| `init` | Initial state after component load, shows title screen |
+| `waiting` | Ball rests on paddle, player can position before launch |
+| `running` | Ball is in play, game loop active |
+| `paused` | Game loop stopped, resumable via Space |
+| `complete` | All bricks destroyed, shows level-complete screen |
+| `stopped` | Game over, shows game-over screen with final score |
+
+## Screens
+
+Overlay layers toggled automatically by `_setState()`:
+
+- **Init screen** — title "QP Breakout" with semi-transparent logo background
+- **Start screen** — instructions before ball launch (Arrow keys, Space)
+- **Pause screen** — shown during pause
+- **Complete screen** — level complete with score, level, and remaining lives
+- **Game-over screen** — final score and level reached
 
 ## Events
 
@@ -95,27 +129,31 @@ document.querySelector('qp-breakout').addEventListener('qp-breakout.game-over', 
 
 ## Game Flow
 
-1. Player starts the game via the **Start** button or the **Space** key.
-   The ball rests on the centered paddle ("waiting" state).
-2. The player can move the paddle with **Arrow keys** — the ball follows.
-   Pressing **Space** launches the ball upward ("running" state).
+1. Component loads in **init** state showing the title screen.
+   Player presses **Start** or **Space** to begin.
+2. The ball rests on the centered paddle (**waiting**). The player can move
+   the paddle with **Arrow keys** — the ball follows. Pressing **Space**
+   launches the ball upward (**running**).
 3. Bricks are destroyed on collision, awarding points based on type. Multi-hit
    bricks (silver, gold) require multiple hits and show reduced opacity as
    visual feedback.
 4. Losing the ball costs a life. The paddle re-centers and the ball is placed
-   on top again ("waiting"), ready for the next launch. Losing all lives
-   triggers game-over.
-5. Clearing all bricks advances to the next level. Between levels the game
-   pauses until the player presses Space or the Pause button.
+   on top again (**waiting**), ready for the next launch. Losing all lives
+   triggers game-over (**stopped**).
+5. Clearing all bricks shows the level-complete screen (**complete**).
+   Pressing **Space** advances to the next level.
 6. An extra life is awarded every `EXTRA_LIVE` (1,000) points.
 
 ## UI Sections
 
 - **Scoreboard** — state indicator, remaining bricks, score, level, lives
-- **Canvas** — 4 stacked HTML5 Canvases (background stars, logo watermark, bricks, game)
+- **Canvas** — 4 stacked HTML5 Canvases (background stars, logo watermark, bricks, game).
+  All canvases share a single static `ResizeObserver` (Canvas class) and limit
+  their height to 90% of the viewport height.
+- **Screens** — overlay layers for init, waiting, paused, complete, and game-over states
 - **Button bar** — Start, Pause, Stop
   - **Start** — starts a new game
-  - **Pause** — pauses/resumes the running game; advances to next level between levels
+  - **Pause** — pauses/resumes the running game; advances to next level on complete
   - **Stop** — stops the current game
 
 ## Lifecycle
@@ -134,8 +172,8 @@ document.querySelector('qp-breakout').addEventListener('qp-breakout.game-over', 
 
 ## Translations
 
-All visible text is resolved via `_dict()` (Dictionary module) with a built-in
-`_defaultDict()` fallback (de/en).
+All visible text (screens, scoreboard, buttons) is resolved via `_dict()`
+(Dictionary module) with a built-in `_defaultDict()` fallback (de/en).
 
 ## File Structure
 
@@ -144,14 +182,14 @@ qp-breakout/
   qp-breakout.wc.js            — Web Component (main)
   qp-breakout.styles.js        — Scoped styles (loaded via getStyles())
   qp-breakout.dictionary.js    — i18n translations
-  qp-breakout.canvas.js        — Canvas wrapper (DPR scaling, resize observer)
+  qp-breakout.canvas.js        — Canvas wrapper (DPR scaling, shared static ResizeObserver)
   qp-breakout.paddle.js        — Paddle entity
-  qp-breakout.ball.js          — Ball entity
+  qp-breakout.ball.js          — Ball entity (attachTo/launch for waiting state)
   qp-bereakout.brick.js        — Brick entity
   qp-breakout.levels.js        — Level definitions and brick type config
   qp-breakout.stars.js         — Parallax star field generator
   images/
-    qp-logo-horns-flash.svg    — Logo watermark
+    qp-logo-horns-flash.svg    — Logo watermark (also used on init screen)
     breakout/
       ball.png                 — Ball sprite
       paddle.png               — Paddle sprite
