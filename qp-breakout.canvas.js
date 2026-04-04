@@ -1,4 +1,40 @@
 export default class Canvas {
+  static HEIGHT_RATIO = 0.9;
+  static _observer = null;
+  static _instances = new Set();
+
+  /**
+   * Initializes a single shared ResizeObserver for all Canvas instances.
+   *
+   * This method is called each time a Canvas registers via observe(), but
+   * the observer is only created once (guard clause on line 1). The callback
+   * iterates over Canvas._instances — a Set that collects all registered
+   * Canvas objects. Since the ResizeObserver callback fires asynchronously
+   * (next microtask), all instances are guaranteed to be registered by the
+   * time the first resize event is processed, even though observe() is
+   * called sequentially during _initCanvas().
+   *
+   * The observer watches document.documentElement to react to viewport
+   * changes (e.g. window resize, devtools toggle). Individual wrappers
+   * are added in observe() to also catch container-level layout changes.
+   */
+  static _initObserver() {
+    if (Canvas._observer) return;
+
+    Canvas._observer = new ResizeObserver(() => {
+      Canvas._instances.forEach((instance) => instance.resize());
+    });
+
+    Canvas._observer.observe(document.documentElement);
+  }
+
+  static _destroyObserver() {
+    if (Canvas._instances.size > 0) return;
+
+    Canvas._observer?.disconnect();
+    Canvas._observer = null;
+  }
+
   constructor(options) {
     options = Object.assign(
       {
@@ -19,7 +55,6 @@ export default class Canvas {
     this._aspectRatio = options.aspectRatio;
     this._cssClass = options.cssClass;
     this._dpr = window.devicePixelRatio || 1;
-    this._observer = null;
 
     this.el = null;
     this.ctx = null;
@@ -51,7 +86,7 @@ export default class Canvas {
     }
 
     // Limit width so the canvas height fits within 90% of the viewport height
-    const maxHeight = window.innerHeight * 0.9;
+    const maxHeight = window.innerHeight * Canvas.HEIGHT_RATIO;
     const desiredHeight = this.width * this._aspectRatio;
 
     if (desiredHeight > maxHeight) {
@@ -77,14 +112,20 @@ export default class Canvas {
   }
 
   observe() {
-    this._observer = new ResizeObserver(() => this.resize());
-    this._observer.observe(this._wrapper);
-    this._observer.observe(document.documentElement);
+    // add to instances Map
+    Canvas._instances.add(this);
+    // init observer
+    Canvas._initObserver();
+
+    // Also observe the wrapper for container-level resizes
+    if (this._wrapper) {
+      Canvas._observer.observe(this._wrapper);
+    }
   }
 
   disconnect() {
-    this._observer?.disconnect();
-    this._observer = null;
+    Canvas._instances.delete(this);
+    Canvas._destroyObserver();
   }
 
   destroy() {

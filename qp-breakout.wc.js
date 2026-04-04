@@ -388,9 +388,6 @@ class QPBreakout extends HTMLElement {
         }
         break;
       case "Escape":
-        // if (this._state === "running" || this._state === "paused") {
-        //   this._gameOver();
-        // }
         this._handleStopClick();
         break;
       case "t":
@@ -441,12 +438,15 @@ class QPBreakout extends HTMLElement {
 
     this._logoCanvas = new Canvas({ ...canvasOptions, cssClass: "qp-breakout-logo-canvas" });
     this._logoCanvas.create();
+    this._logoCanvas.observe();
 
     this._bricksCanvas = new Canvas({ ...canvasOptions, cssClass: "qp-breakout-bricks-canvas" });
     this._bricksCanvas.create();
+    this._bricksCanvas.observe();
 
     this._gameCanvas = new Canvas(canvasOptions);
     this._gameCanvas.create();
+    this._gameCanvas.observe();
 
     this._initStars();
     this._drawInitialBackground();
@@ -521,6 +521,7 @@ class QPBreakout extends HTMLElement {
   }
 
   _setScreen(screen) {
+    // Hide all screens
     this._screens.forEach((screen) => {
       screen.classList.remove("qp-breakout-screen-visible");
     });
@@ -686,19 +687,19 @@ class QPBreakout extends HTMLElement {
     });
   }
 
-  _initRound(state = "waiting") {
+  _initRound() {
     this._gameCanvas.clear();
     this._bricksCanvas.clear();
 
     this._setBall();
     this._setBricks();
-    this._remaining = this._bricks.flat().filter((b) => b.visible).length;
+    this._remaining = this._bricks.flat().filter((brick) => brick.visible).length;
     this._drawBricks();
 
     // Place ball on paddle and wait for launch
     this._paddle.centerOn(this._gameCanvas.width);
     this._ball.attachTo(this._paddle);
-    this._setState(state);
+    this._setState("waiting");
     this._setCounter();
     this._setOutput();
     this._gameLoop();
