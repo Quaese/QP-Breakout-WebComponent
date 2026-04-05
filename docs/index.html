@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QP Breakout — Web Component Demo</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: monospace;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      font-size: 0.875rem;
+      color: #999;
+      margin-bottom: 1.5rem;
+    }
+
+    .demo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .log {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #0f0f23;
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      width: min(90vw, 500px);
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .log p {
+      color: #7fba72;
+      margin: 0.15rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>&lt;qp-breakout&gt; Demo</h1>
+  <p>Space: Start / Pause / Launch &middot; Arrow Keys: Move Paddle &middot; Escape: Stop</p>
+
+  <div class="demo">
+    <qp-breakout lang="en"></qp-breakout>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script type="module" src="./qp-breakout.wc.js"></script>
+  <script>
+    const breakout = document.querySelector("qp-breakout");
+    const log = document.getElementById("log");
+
+    function addLog(msg) {
+      const p = document.createElement("p");
+      p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      log.prepend(p);
+    }
+
+    breakout.addEventListener("qp-breakout.game-started", (e) =>
+      addLog(`Game started — Level: ${e.detail.level}, Lives: ${e.detail.lives}`)
+    );
+    breakout.addEventListener("qp-breakout.game-paused", () => addLog("Game paused"));
+    breakout.addEventListener("qp-breakout.game-resumed", () => addLog("Game resumed"));
+    breakout.addEventListener("qp-breakout.game-level-up", (e) =>
+      addLog(`Level up! Level: ${e.detail.level}, Score: ${e.detail.score}`)
+    );
+    breakout.addEventListener("qp-breakout.level-complete", (e) =>
+      addLog(`Level complete — Level: ${e.detail.level}, Score: ${e.detail.score}`)
+    );
+    breakout.addEventListener("qp-breakout.game-extra-life", (e) =>
+      addLog(`Extra life! Lives: ${e.detail.lives}, Score: ${e.detail.score}`)
+    );
+    breakout.addEventListener("qp-breakout.game-life-lost", (e) =>
+      addLog(`Life lost — Lives remaining: ${e.detail.lives}`)
+    );
+    breakout.addEventListener("qp-breakout.game-over", (e) =>
+      addLog(`Game over — Level: ${e.detail.level}, Score: ${e.detail.score}`)
+    );
+  </script>
+
+</body>
+</html>

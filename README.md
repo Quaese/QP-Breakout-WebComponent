@@ -7,6 +7,8 @@ generated layouts, multi-hit bricks (silver 2 hits, gold 3 hits), an extra-life
 bonus, and a parallax star/logo background. Game elements (ball, paddle, bricks)
 can be rendered as sprite images or drawn programmatically.
 
+**[Live Demo](https://quaese.github.io/QP-Breakout-WebComponent/)**
+
 ## Table of Contents
 
 - [Usage](#usage)

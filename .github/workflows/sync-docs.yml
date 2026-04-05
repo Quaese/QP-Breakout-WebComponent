@@ -1,0 +1,44 @@
+name: Sync docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "*.js"
+      - "images/**"
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy JS files to docs/
+        run: |
+          cp qp-breakout.wc.js docs/
+          cp qp-breakout.styles.js docs/
+          cp qp-breakout.dictionary.js docs/
+          cp qp-breakout.canvas.js docs/
+          cp qp-breakout.paddle.js docs/
+          cp qp-breakout.ball.js docs/
+          cp qp-bereakout.brick.js docs/
+          cp qp-breakout.levels.js docs/
+          cp qp-breakout.screen.js docs/
+          cp qp-breakout.stars.js docs/
+
+      - name: Copy images to docs/
+        run: |
+          cp images/qp-logo-horns-flash.svg docs/images/
+          cp images/breakout/*.png docs/images/breakout/
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet docs/ || (git add docs/ && git commit -m "chore: sync JS files and images to docs/" && git push)
