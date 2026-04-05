@@ -15,6 +15,7 @@ can be rendered as sprite images or drawn programmatically.
 - [Screens](#screens)
 - [Events](#events)
 - [Game Flow](#game-flow)
+- [Level System](#level-system)
 - [UI Sections](#ui-sections)
 - [Lifecycle](#lifecycle)
 - [Translations](#translations)
@@ -144,6 +145,61 @@ document.querySelector('qp-breakout').addEventListener('qp-breakout.game-over', 
    Pressing **Space** advances to the next level.
 6. An extra life is awarded every `EXTRA_LIVE` (1,000) points.
 
+## Level System
+
+Levels are defined in `qp-breakout.levels.js` using two data structures:
+
+### Brick Types (`BRICK_TYPES`)
+
+Maps numeric IDs to brick properties. Used in layout grids.
+
+| ID | Color | Score | Hits | Description |
+| --- | --- | --- | --- | --- |
+| 0 | — | — | — | Empty cell |
+| 1 | Yellow | 10 | 1 | Easiest |
+| 2 | Orange | 15 | 1 | |
+| 3 | Red | 20 | 1 | |
+| 4 | Green | 25 | 1 | |
+| 5 | Blue | 30 | 1 | |
+| 6 | Purple | 50 | 1 | Hardest single-hit |
+| 7 | Silver | 40 | 2 | Multi-hit |
+| 8 | Gold | 75 | 3 | Multi-hit |
+
+### Level Definitions (`LEVELS`)
+
+Each level has a `name` and either a `layout` or `random` config:
+
+**Predefined layout** — 2D array where each number references a `BRICK_TYPE`:
+
+```javascript
+{
+  name: "Diamond",
+  score: 200,
+  layout: [
+    [0, 0, 0, 6, 6, 0, 0, 0],
+    [0, 0, 5, 5, 5, 5, 0, 0],
+    [0, 4, 4, 4, 4, 4, 4, 0],
+    [3, 3, 3, 3, 3, 3, 3, 3],
+  ],
+}
+```
+
+**Random layout** — procedurally generated based on parameters:
+
+```javascript
+{
+  name: "Random",
+  score: 500,
+  random: { rows: 5, cols: 8, fillRatio: 0.6, maxType: 6 },
+}
+```
+
+### Level Progression
+
+1. Predefined levels (1–N) are played in order.
+2. Beyond the last predefined level, infinite random levels are generated
+   with increasing difficulty (more rows, higher fill ratio, multi-hit bricks).
+
 ## UI Sections
 
 - **Scoreboard** — state indicator, remaining bricks, score, level, lives
@@ -187,6 +243,7 @@ qp-breakout/
   qp-breakout.ball.js          — Ball entity (attachTo/launch for waiting state)
   qp-bereakout.brick.js        — Brick entity
   qp-breakout.levels.js        — Level definitions and brick type config
+  qp-breakout.screen.js        — Screen + ScreenController for overlay management
   qp-breakout.stars.js         — Parallax star field generator
   images/
     qp-logo-horns-flash.svg    — Logo watermark (also used on init screen)

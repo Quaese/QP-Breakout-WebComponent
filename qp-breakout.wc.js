@@ -44,6 +44,16 @@
  *     - "complete" — all bricks destroyed, shows level-complete screen
  *     - "stopped"  — game over, shows game-over screen with final score
  *
+ *   Level system (qp-breakout.levels.js):
+ *     - BRICK_TYPES: maps numeric IDs to { color, score, hits, image }.
+ *       Types 1–6 are single-hit, 7 (silver) is 2-hit, 8 (gold) is 3-hit.
+ *     - LEVELS: array of level definitions, each with a name and either:
+ *       - layout: 2D array where each number references a BRICK_TYPE (0 = empty)
+ *       - random: { rows, cols, fillRatio, maxType } for procedural generation
+ *     - Level progression: predefined levels are played in order (1–N).
+ *       Beyond that, _getLevelDef() generates infinite random levels with
+ *       increasing difficulty (more rows, higher fill ratio, multi-hit bricks).
+ *
  *   Game flow:
  *     1. Component loads in "init" state showing the title screen.
  *        Player presses Start or Space to begin.
@@ -104,6 +114,7 @@
  *   - ./qp-breakout.ball.js        — Ball entity
  *   - ./qp-bereakout.brick.js      — Brick entity
  *   - ./qp-breakout.levels.js      — Level definitions and brick type config
+ *   - ./qp-breakout.screen.js     — Screen + ScreenController for overlay management
  *   - ./qp-breakout.stars.js       — Parallax star field generator
  *   - ./images/breakout/            — Sprite images (ball, paddle, bricks)
  */
@@ -116,6 +127,7 @@ import Ball from "./qp-breakout.ball.js";
 import Brick from "./qp-bereakout.brick.js";
 import { BRICK_TYPES, LEVELS } from "./qp-breakout.levels.js";
 import Stars from "./qp-breakout.stars.js";
+import ScreenController from "./qp-breakout.screen.js";
 
 class QPBreakout extends HTMLElement {
   static COLS = 8;
@@ -124,15 +136,9 @@ class QPBreakout extends HTMLElement {
   static EXTRA_LIVE = 1000;
   static PADDLE_SPEED = 6;
   static MARGIN = 4;
-  static PREVENT_KEYCODES = {
-    13: "Enter",
-    27: "Escape",
-    32: "Space",
-    37: "ArrowLeft",
-    38: "ArrowUp",
-    39: "ArrowRight",
-    40: "ArrowDown",
-  };
+  // keyCodes to suppress default browser behavior:
+  // Enter: 13, Escape: 27, Space: 32, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40
+  static PREVENT_KEYCODES = new Set([13, 27, 32, 37, 38, 39, 40]);
 
   static get observedAttributes() {
     return ["width", "scale", "lang", "use-images"];
@@ -171,7 +177,7 @@ class QPBreakout extends HTMLElement {
     this._btnStop = null;
     this._btnStart = null;
     this._btnPause = null;
-    this._screens = [];
+    this._screenController = null;
 
     // game state
     this._hLoopTimer = null;
@@ -261,6 +267,8 @@ class QPBreakout extends HTMLElement {
     this._bricksCanvas = null;
     this._gameCanvas = null;
     this._stars = null;
+    this._screenController?.destroy();
+    this._screenController = null;
     this._setState("init");
   }
   /* END - Lifecycle */
@@ -388,7 +396,7 @@ class QPBreakout extends HTMLElement {
   }
 
   _handleKeyDown(e) {
-    Object.keys(QPBreakout.PREVENT_KEYCODES).map(Number).includes(e.keyCode) && e.preventDefault();
+    QPBreakout.PREVENT_KEYCODES.has(e.keyCode) && e.preventDefault();
 
     switch (e.key) {
       case "ArrowRight":
@@ -410,23 +418,28 @@ class QPBreakout extends HTMLElement {
         break;
       case "t":
         if (this._state === "running") {
-          const allBricks = this._bricks.flat().filter((b) => b.visible);
+          const allBricks = this._bricks.flat().filter((b) => b?.visible);
+
           allBricks.slice(0, -1).forEach((b) => {
-            b.visible = false;
+            // drain all hits so multi-hit bricks are properly destroyed
+            while (b.hits > 0) b.hit();
+
             this._score += b.score;
           });
+
           this._remaining = 1;
           this._setCounter();
           this._bricksCanvas.clear();
           this._drawBricks();
           this._setOutput();
         }
+
         break;
     }
   }
 
   _handleKeyUp(e) {
-    Object.keys(QPBreakout.PREVENT_KEYCODES).map(Number).includes(e.keyCode) && e.preventDefault();
+    QPBreakout.PREVENT_KEYCODES.has(e.keyCode) && e.preventDefault();
 
     if (this._state !== "running" && this._state !== "waiting") return;
 
@@ -446,8 +459,9 @@ class QPBreakout extends HTMLElement {
     this._bgCanvas = new Canvas({
       ...canvasOptions,
       cssClass: "qp-breakout-bg-canvas",
+      // callback to resize screens and backgrounds after resizing the canvases
       onResize: () => {
-        this._resizeScreens();
+        this._screenController?.resize(this._bgCanvas.width + "px", this._bgCanvas.height + "px");
         this._drawInitialBackground();
       },
     });
@@ -468,122 +482,6 @@ class QPBreakout extends HTMLElement {
 
     this._initStars();
     this._drawInitialBackground();
-  }
-
-  _initScreens() {
-    this._initScreen = document.createElement("div");
-    this._initScreen.classList.add("qp-breakout-screen", "qp-breakout-screen-init");
-    this._initScreen.style.setProperty("--bg-image", `url("${this._logoImage.src}")`);
-    this._initScreen.innerHTML = `
-      <div class="qp-breakout-screen-content">
-        <h1>${this._dict("screenInitTitle", this._lang)}</h1>
-        <p>${this._dict("screenInitText", this._lang)}</p>
-      </div>
-    `;
-
-    this._startScreen = document.createElement("div");
-    this._startScreen.classList.add("qp-breakout-screen");
-    this._startScreen.innerHTML = `
-      <div class="qp-breakout-screen-content">
-        <h1>${this._dict("screenWaitingTitle", this._lang)}</h1>
-        <p>${this._dict("screenWaitingText", this._lang)}</p>
-        <p class="qp-breakout-screen-lives">${this._dict("screenRemainingLives", this._lang, this._lives)}</p>
-        <p>${this._dict("screenWaitingAction", this._lang)}</p>
-      </div>
-    `;
-
-    this._pauseScreen = document.createElement("div");
-    this._pauseScreen.classList.add("qp-breakout-screen");
-    this._pauseScreen.innerHTML = `
-      <div class="qp-breakout-screen-content">
-        <h1>${this._dict("screenPausedTitle", this._lang)}</h1>
-        <p>${this._dict("screenPausedText", this._lang)}</p>
-      </div>
-    `;
-
-    this._gameoverScreen = document.createElement("div");
-    this._gameoverScreen.classList.add("qp-breakout-screen");
-    this._gameoverScreen.innerHTML = `
-      <div class="qp-breakout-screen-content">
-        <h1>${this._dict("screenGameoverTitle", this._lang)}</h1>
-        <p class="qp-breakout-screen-score">${this._dict("screenCompleteScore", this._lang, this._score)}</p>
-        <p class="qp-breakout-screen-level">${this._dict("screenLevel", this._lang, this._level)}</p>
-        <p>${this._dict("screenGameoverText", this._lang)}</p>
-      </div>
-    `;
-
-    this._completeScreen = document.createElement("div");
-    this._completeScreen.classList.add("qp-breakout-screen");
-    this._completeScreen.innerHTML = `
-      <div class="qp-breakout-screen-content">
-        <h1>${this._dict("screenCompleteTitle", this._lang)}</h1>
-        <p class="qp-breakout-screen-level">${this._dict("screenLevel", this._lang, this._level)}</p>
-        <p class="qp-breakout-screen-lives">${this._dict("screenRemainingLives", this._lang, this._lives)}</p>
-        <p class="qp-breakout-screen-score">${this._dict("screenCompleteScore", this._lang, this._score)}</p>
-        <p>${this._dict("screenCompleteText", this._lang)}</p>
-      </div>
-    `;
-
-    this._screens = [
-      this._initScreen,
-      this._startScreen,
-      this._pauseScreen,
-      this._completeScreen,
-      this._gameoverScreen,
-    ];
-
-    this._wrapper.appendChild(this._initScreen);
-    this._wrapper.appendChild(this._startScreen);
-    this._wrapper.appendChild(this._pauseScreen);
-    this._wrapper.appendChild(this._completeScreen);
-    this._wrapper.appendChild(this._gameoverScreen);
-  }
-
-  _setScreen(screen) {
-    // Hide all screens
-    this._screens.forEach((screen) => {
-      screen.classList.remove("qp-breakout-screen-visible");
-    });
-
-    if (screen === this._completeScreen || screen === this._gameoverScreen) {
-      screen.querySelector(".qp-breakout-screen-score").textContent = this._dict(
-        "screenCompleteScore",
-        this._lang,
-        this._score,
-      );
-    }
-
-    if (screen === this._completeScreen || screen === this._gameoverScreen) {
-      screen.querySelector(".qp-breakout-screen-level").textContent = this._dict(
-        "screenLevel",
-        this._lang,
-        this._level,
-      );
-    }
-
-    if (screen === this._startScreen || screen === this._completeScreen) {
-      screen.querySelector(".qp-breakout-screen-lives").textContent = this._dict(
-        "screenRemainingLives",
-        this._lang,
-        this._lives,
-      );
-    }
-
-    screen && screen.classList.add("qp-breakout-screen-visible");
-  }
-
-  _resizeScreens() {
-    if (!this._bgCanvas) return;
-
-    const width = this._bgCanvas.width + "px";
-    const height = this._bgCanvas.height + "px";
-
-    this._screens.forEach((screen) => {
-      if (!screen) return;
-
-      screen.style.width = width;
-      screen.style.height = height;
-    });
   }
 
   _initStars() {
@@ -712,7 +610,7 @@ class QPBreakout extends HTMLElement {
 
     this._setBall();
     this._setBricks();
-    this._remaining = this._bricks.flat().filter((brick) => brick.visible).length;
+    this._remaining = this._bricks.flat().filter((brick) => brick?.visible).length;
     this._drawBricks();
 
     // Place ball on paddle and wait for launch
@@ -788,12 +686,13 @@ class QPBreakout extends HTMLElement {
     this._ball.move();
 
     if (!this._checkPaddleCollision()) return;
+
     // ball hits a brick
     if (this._checkBrickCollision()) {
-      this._remaining = this._bricks.flat().filter((b) => b.visible).length;
       this._bricksCanvas.clear();
       this._setOutput();
 
+      // if no bricks left => level complete
       if (this._remaining <= 0) {
         this._score += this._currentLevelDef.score;
         this._dispatchEvent("qp-breakout.level-complete", {
@@ -868,7 +767,6 @@ class QPBreakout extends HTMLElement {
 
     const canvasWidth = this._bricksCanvas.width;
     const margin = canvasWidth < 480 ? QPBreakout.MARGIN - 1 : QPBreakout.MARGIN;
-    // const margin = canvasWidth < 480 ? Math.round(canvasWidth / 100) : QPBreakout.MARGIN;
     const brickWidth = (canvasWidth - margin * (cols + 1)) / cols;
     const brickHeight = Math.round(brickWidth / 3);
 
@@ -880,19 +778,8 @@ class QPBreakout extends HTMLElement {
         const brickType = BRICK_TYPES[typeId];
 
         if (!brickType) {
-          // empty cell — invisible placeholder to maintain grid structure
-          const brick = new Brick({
-            x: margin + j * (brickWidth + margin),
-            y: margin + i * (brickHeight + margin),
-            width: brickWidth,
-            height: brickHeight,
-            fill: "transparent",
-            score: 0,
-            hits: 0,
-            ctx: this._bricksCanvas.ctx,
-          });
-          brick.visible = false;
-          this._bricks[i].push(brick);
+          // empty cell
+          this._bricks[i].push(null);
         } else {
           this._bricks[i].push(
             new Brick({
@@ -915,7 +802,9 @@ class QPBreakout extends HTMLElement {
   _drawBricks() {
     for (let row = 0; row < this._bricks.length; row++) {
       for (let col = 0; col < this._bricks[row].length; col++) {
-        this._bricks[row][col].visible && this._bricks[row][col].draw();
+        const brick = this._bricks[row][col];
+
+        if (brick?.visible) brick.draw();
       }
     }
   }
@@ -967,7 +856,7 @@ class QPBreakout extends HTMLElement {
       for (let j = 0; j < this._bricks[i].length; j++) {
         const brick = this._bricks[i][j];
 
-        if (!brick.visible) continue;
+        if (!brick?.visible) continue;
 
         // ball edges vs brick bounds
         if (
@@ -990,12 +879,18 @@ class QPBreakout extends HTMLElement {
 
           // multi-hit: only score when brick is destroyed
           const destroyed = brick.hit();
+
           if (destroyed) {
+            // decrement remaining amount of bricks
+            this._remaining--;
+
+            // calculate extra lives
             const oldThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
             this._score += brick.score;
             const newThreshold = Math.floor(this._score / QPBreakout.EXTRA_LIVE);
             const extraLives = newThreshold - oldThreshold;
             this._lives += extraLives;
+            // dispatch event when extra life is granted
             extraLives > 0 &&
               this._dispatchEvent("qp-breakout.game-extra-life", {
                 lives: this._lives,
@@ -1107,23 +1002,17 @@ class QPBreakout extends HTMLElement {
 
     this._stateNode.textContent = label;
 
-    const screenMap = {
-      init: this._initScreen,
-      waiting: this._startScreen,
-      paused: this._pauseScreen,
-      complete: this._completeScreen,
-      stopped: this._gameoverScreen,
-    };
-
-    this._setScreen(screenMap[this._state] || null);
+    this._screenController?.show(this._state, this._lang, {
+      score: this._score,
+      level: this._level,
+      lives: this._lives,
+    });
   }
   _setCounter() {
     if (this._counter)
       this._counter.textContent = `${this._dict("scoreboardLevel", this._lang, this._level)}, ${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}`;
   }
   _setOutput() {
-    // const remainingBricks = this._bricks.flat().filter((b) => b.visible).length;
-
     if (this._output)
       this._output.textContent = `${this._dict("scoreboardRemainingBricks", this._lang, this._remaining)}`;
   }
@@ -1157,8 +1046,17 @@ class QPBreakout extends HTMLElement {
     if (this.isConnected) {
       this._setNodes();
       this._initCanvas();
-      this._initScreens();
-      this._resizeScreens();
+      this._screenController = new ScreenController({
+        wrapper: this._wrapper,
+        dict: this._dict,
+        logoSrc: this._logoImage.src,
+      });
+      this._screenController.init(this._lang, {
+        score: this._score,
+        level: this._level,
+        lives: this._lives,
+      });
+      this._screenController.resize(this._bgCanvas.width + "px", this._bgCanvas.height + "px");
       this._attachEvents();
       this._setState();
     }

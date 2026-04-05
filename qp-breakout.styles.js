@@ -44,9 +44,6 @@ function getStyles() {
           display: flex;
           justify-content: center;
           align-items: center;
-          // top: 0;
-          // left: 50%;
-          // transform: translateX(-50%);
           font-family: monospace;
           font-size: 1.5rem;
           color: #fff;

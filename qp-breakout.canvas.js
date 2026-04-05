@@ -22,6 +22,7 @@ export default class Canvas {
     if (Canvas._observer) return;
 
     Canvas._observer = new ResizeObserver(() => {
+      // is filled with all registered Canvas instances when Canvas.observe() is called the first time (earliest next microtask)
       Canvas._instances.forEach((instance) => instance.resize());
     });
 
@@ -104,6 +105,7 @@ export default class Canvas {
 
     this.ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
 
+    // Call resize callback (if defined)
     if (this._onResize && typeof this._onResize === "function") this._onResize();
   }
 
