@@ -16,6 +16,7 @@ function getStyles() {
           padding: 0.25rem 1rem;
           font-family: monospace;
           font-size: 1rem;
+          white-space: nowrap;
         }
       
         .qp-scoreboard-output {
