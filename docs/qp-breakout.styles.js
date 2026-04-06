@@ -15,8 +15,9 @@ function getStyles() {
           margin: 0 2rem;
           padding: 0.25rem 1rem;
           font-family: monospace;
-          font-size: 1rem;
+          font-size: 0.9rem;
           white-space: nowrap;
+          overflow: hidden;
         }
       
         .qp-scoreboard-output {
@@ -109,10 +110,11 @@ function getStyles() {
           display: flex;
           justify-content: center;
           gap: 1rem;
-      
+
           border-top: 1px solid #ddd;
           margin: 0 2rem 1rem;
           padding: 1rem 1rem 0.5rem;
+          overflow: hidden;
         }
       
         .qp-btn {
