@@ -1,5 +1,6 @@
 export default class Canvas {
   static HEIGHT_RATIO = 0.9;
+  static MIN_WIDTH = 480;
   static _observer = null;
   static _instances = new Set();
 
@@ -79,22 +80,32 @@ export default class Canvas {
     if (!this.valid || !this.el) return;
 
     const available = this._wrapper.offsetWidth;
+    let newWidth;
 
     if (this._fixedWidth) {
-      this.width = Math.min(this._fixedWidth, available);
+      newWidth = Math.min(this._fixedWidth, available);
     } else {
-      this.width = available * this._scale;
+      newWidth = available * this._scale;
     }
+
+    // enforce minimum width
+    newWidth = Math.max(newWidth, Canvas.MIN_WIDTH);
 
     // Limit width so the canvas height fits within 90% of the viewport height
     const maxHeight = window.innerHeight * Canvas.HEIGHT_RATIO;
-    const desiredHeight = this.width * this._aspectRatio;
+    const desiredHeight = newWidth * this._aspectRatio;
 
     if (desiredHeight > maxHeight) {
-      this.width = maxHeight / this._aspectRatio;
+      newWidth = maxHeight / this._aspectRatio;
     }
 
-    this.height = this.width * this._aspectRatio;
+    const newHeight = newWidth * this._aspectRatio;
+
+    // skip if dimensions unchanged — prevents clearing canvas pixels
+    if (newWidth === this.width && newHeight === this.height) return;
+
+    this.width = newWidth;
+    this.height = newHeight;
 
     this.el.style.width = this.width + "px";
     this.el.style.height = this.height + "px";

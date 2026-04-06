@@ -82,8 +82,9 @@
  *     - Logo canvas       — semi-transparent logo watermark with parallax
  *     - Bricks canvas     — static brick grid (redrawn only on collision)
  *     - Game canvas       — ball and paddle (redrawn every frame)
- *     All canvases share a single static ResizeObserver (Canvas class) and
- *     limit their height to 90% of the viewport height.
+ *     All canvases share a single static ResizeObserver (Canvas class),
+ *     enforce a minimum width of 480px, and limit their height to 90%
+ *     of the viewport height.
  *
  *   Controls:
  *     - Arrow Left / Right — move paddle (also in "waiting" state)
@@ -461,6 +462,7 @@ class QPBreakout extends HTMLElement {
       cssClass: "qp-breakout-bg-canvas",
       // callback to resize screens and backgrounds after resizing the canvases
       onResize: () => {
+        this._syncLayoutWidth();
         this._screenController?.resize(this._bgCanvas.width + "px", this._bgCanvas.height + "px");
         this._drawInitialBackground();
       },
@@ -582,6 +584,18 @@ class QPBreakout extends HTMLElement {
     // Logo
     this._logoCanvas.clear();
     this._drawLogo(offset * -10, offset * -6);
+  }
+
+  // constrain scoreboard and button bar to canvas width
+  _syncLayoutWidth() {
+    const width = this._bgCanvas?.width;
+
+    if (!width) return;
+
+    const maxWidth = width + "px";
+
+    if (this._scoreboard) this._scoreboard.style.maxWidth = maxWidth;
+    if (this._buttonBar) this._buttonBar.style.maxWidth = maxWidth;
   }
 
   /* END - Canvas Controller */
@@ -1010,7 +1024,7 @@ class QPBreakout extends HTMLElement {
   }
   _setCounter() {
     if (this._counter)
-      this._counter.textContent = `${this._dict("scoreboardLevel", this._lang, this._level)}, ${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}`;
+      this._counter.innerHTML = `${this._dict("scoreboardLevel", this._lang, this._level)}<br  />${this._dict("scoreboardScore", this._lang, this._score)}<br  />${this._dict("scoreboardLives", this._lang, this._lives)}`;
   }
   _setOutput() {
     if (this._output)
@@ -1028,9 +1042,11 @@ class QPBreakout extends HTMLElement {
 
     this._wrapper = this.shadowRoot.querySelector(".qp-breakout-wrapper");
 
+    this._scoreboard = this.shadowRoot.querySelector(".qp-scoreboard");
     this._output = this.shadowRoot.querySelector(".qp-scoreboard-output");
     this._stateNode = this.shadowRoot.querySelector(".qp-scoreboard-state");
     this._counter = this.shadowRoot.querySelector(".qp-scoreboard-counter");
+    this._buttonBar = this.shadowRoot.querySelector(".qp-breakout-button-bar");
   }
 
   _render() {
@@ -1046,6 +1062,7 @@ class QPBreakout extends HTMLElement {
     if (this.isConnected) {
       this._setNodes();
       this._initCanvas();
+      this._syncLayoutWidth();
       this._screenController = new ScreenController({
         wrapper: this._wrapper,
         dict: this._dict,
@@ -1067,7 +1084,7 @@ class QPBreakout extends HTMLElement {
     <div class="qp-scoreboard">
       <div class="qp-scoreboard-state">---</div>
       <div class="qp-scoreboard-output">---</div>
-      <div class="qp-scoreboard-counter">${this._dict("scoreboardLevel", this._lang, this._level)}, ${this._dict("scoreboardScore", this._lang, this._score)}, ${this._dict("scoreboardLives", this._lang, this._lives)}</div>
+      <div class="qp-scoreboard-counter">${this._dict("scoreboardLevel", this._lang, this._level)}<br  />${this._dict("scoreboardScore", this._lang, this._score)}<br  />${this._dict("scoreboardLives", this._lang, this._lives)}</div>
     </div>`;
   }
 

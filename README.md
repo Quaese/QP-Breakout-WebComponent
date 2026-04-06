@@ -206,8 +206,8 @@ Each level has a `name` and either a `layout` or `random` config:
 
 - **Scoreboard** — state indicator, remaining bricks, score, level, lives
 - **Canvas** — 4 stacked HTML5 Canvases (background stars, logo watermark, bricks, game).
-  All canvases share a single static `ResizeObserver` (Canvas class) and limit
-  their height to 90% of the viewport height.
+  All canvases share a single static `ResizeObserver` (Canvas class), enforce
+  a minimum width of 480px, and limit their height to 90% of the viewport height.
 - **Screens** — overlay layers for init, waiting, paused, complete, and game-over states
 - **Button bar** — Start, Pause, Stop
   - **Start** — starts a new game
