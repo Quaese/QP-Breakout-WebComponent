@@ -1,7 +1,9 @@
 import * as esbuild from "esbuild";
 import { cpSync } from "node:fs";
 
-await esbuild.build({
+const watchMode = process.argv.includes("--watch");
+
+const buildOptions = {
   entryPoints: ["qp-breakout.wc.js"],
   bundle: true,
   minify: true,
@@ -9,7 +11,14 @@ await esbuild.build({
   format: "esm",
   target: ["es2022"],
   outfile: "docs/qp-breakout.bundle.js",
-});
+};
 
-cpSync("images", "docs/images", { recursive: true });
-console.log("Build complete.");
+if (watchMode) {
+  const ctx = await esbuild.context({ ...buildOptions, logLevel: "info" });
+  await ctx.watch();
+  console.log("Watching for changes...");
+} else {
+  await esbuild.build(buildOptions);
+  cpSync("images", "docs/images", { recursive: true });
+  console.log("Build complete.");
+}

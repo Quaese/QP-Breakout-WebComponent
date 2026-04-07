@@ -21,6 +21,7 @@ can be rendered as sprite images or drawn programmatically.
 - [UI Sections](#ui-sections)
 - [Lifecycle](#lifecycle)
 - [Translations](#translations)
+- [Build](#build)
 - [File Structure](#file-structure)
 
 ## Usage
@@ -233,6 +234,17 @@ Each level has a `name` and either a `layout` or `random` config:
 All visible text (screens, scoreboard, buttons) is resolved via `_dict()`
 (Dictionary module) with a built-in `_defaultDict()` fallback (de/en).
 
+## Build
+
+The demo page (`docs/`) uses a single bundled file built with [esbuild](https://esbuild.github.io/).
+
+```bash
+npm run build   # one-time bundle (also used by GitHub Actions)
+npm run watch   # watch mode — auto-rebuilds on file changes
+```
+
+Configuration in `build.mjs` and `package.json`.
+
 ## File Structure
 
 ```text
@@ -247,6 +259,8 @@ qp-breakout/
   qp-breakout.levels.js        — Level definitions and brick type config
   qp-breakout.screen.js        — Screen + ScreenController for overlay management
   qp-breakout.stars.js         — Parallax star field generator
+  build.mjs                    — esbuild config (build + watch mode)
+  package.json                 — npm scripts (build, watch)
   images/
     qp-logo-horns-flash.svg    — Logo watermark (also used on init screen)
     breakout/

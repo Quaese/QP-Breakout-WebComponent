@@ -107,6 +107,12 @@
  *   Styles:
  *     Loaded from the external module qp-breakout.styles.js via getStyles().
  *
+ *   Build:
+ *     The demo page (docs/) uses a single bundled file built with esbuild.
+ *     - npm run build  — one-time bundle (also used by GitHub Actions)
+ *     - npm run watch  — watch mode, auto-rebuilds on file changes
+ *     Configuration in build.mjs and package.json.
+ *
  * @dependencies
  *   - ./qp-breakout.dictionary.js  — i18n translations
  *   - ./qp-breakout.styles.js      — scoped styles
